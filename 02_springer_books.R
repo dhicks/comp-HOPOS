@@ -109,6 +109,7 @@ springer_books_df = cr_df$data %>%
     ## And join w/ the original DF to track book series
     left_join(book_series_df, by = c('book_url' = 'URL'))
 
+## Total chapters in each year
 ggplot(springer_books_df, aes(`Publication Year`, 
                               fill = book_series)) + 
     geom_bar() +
