@@ -16,9 +16,12 @@ western_df = read_csv('00_Western_Ontario.csv') %>%
 
 book_series_df = bind_rows(list('Boston SH&PS' = boston_df, 
                                 'Western Ontario SH&PS' = western_df),
-                           .id = 'book_series')
+                           .id = 'publication_series') %>%
+    mutate(publication_group = 'primary')
 
 ## Scrape TOCs from Springer ----------
+## Basic idea here is that the CSVs include URLs for TOC pages
+## These pages list chapters, w/ DOIs embedded in the links
 parse_dois = function(response) {
     dois = xml_find_all(response, 
                         '//li[@class="chapter-item content-type-list__item"]') %>%
@@ -30,7 +33,7 @@ parse_dois = function(response) {
 
 scrape_springer = function(this_url) {
     ## Avoid attracting too much attention
-    # Sys.sleep(.5)
+    Sys.sleep(.5)
     response = read_html(this_url)
     dois = parse_dois(response)
     
@@ -60,12 +63,17 @@ scrape_springer = function(this_url) {
     }
 }
 
+# system.time({
+#      springer_df = foreach(this_url = book_series_df$URL, 
+#                       .combine = bind_rows, 
+#                       .multicombine = TRUE, 
+#                       .verbose = FALSE) %do% 
+#     scrape_springer(this_url)
+# })
 system.time({
-     springer_df = foreach(this_url = book_series_df$URL, 
-                      .combine = bind_rows, 
-                      .multicombine = TRUE, 
-                      .verbose = FALSE) %do% 
-    scrape_springer(this_url)
+    springer_df = book_series_df %>%
+        pull(URL) %>%
+        plyr::ldply(scrape_springer, .progress = 'text')
 })
 
 ## Confirm we have results for all books in book_series_df
@@ -94,27 +102,12 @@ system.time({
 })
 
 springer_books_df = cr_df$data %>%
-    ## Drop `link` because it messes w/ unnesting authors
-    select(-link) %>% 
-    ## Remove rows w/ NULL author values
-    filter(!simplify(map(.$author, is.null))) %>%
-    ## Unnest authors
-    unnest() %>%
-    ## Add back rows w/ NULL author values
-    right_join(cr_df$data) %>% 
-    ## This brought `author` and `link` back
-    select(-author, -link) %>%
     ## Join w/ ch-level DOIs, so we can see what DOIs weren't in CR
     right_join(springer_df, by = c('DOI' = 'ch_doi')) %>%
     ## And join w/ the original DF to track book series
-    left_join(book_series_df, by = c('book_url' = 'URL'))
-
-## Total chapters in each year
-ggplot(springer_books_df, aes(`Publication Year`, 
-                              fill = book_series)) + 
-    geom_bar() +
-    scale_fill_brewer(palette = 'Set1') + 
-    theme_minimal()
+    left_join(select(book_series_df, 
+                     URL, publication_group, publication_series), 
+              by = c('book_url' = 'URL'))
 
 ## Save results ----------
-save(springer_books_df, file = '02_springer_books.Rdata')
+write_rds(springer_books_df, path = '02_springer_books.rds')

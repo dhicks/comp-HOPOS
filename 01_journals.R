@@ -1,8 +1,10 @@
+## Use CrossRef to get metadata for journal articles
 library(tidyverse)
 library(lubridate)
 library(rcrossref)
 
-## Crossref is very efficient at returning metadata
+## Bc some philosophy of science is published elsewhere (especially before the phil sci/analytic split began), need to grab both "primary" phil sci journals + "secondary" journals that have a little phil sci (and lots of irrelevant stuff)
+## To filter out the irrelevant stuff later, use inclusion rules for authors after de-duping, eg, need at least 2 papers in primary journals
 
 issns_primary = c('0031-8248', # Philosophy of Science
           '0039-3681', # Studies A
@@ -39,7 +41,7 @@ issns_secondary = c(
 )
 
 issns = tibble(issn = c(issns_primary, issns_secondary), 
-       journal_group = c(rep('primary', length(issns_primary)), 
+       publication_group = c(rep('primary', length(issns_primary)), 
                          rep('secondary', length(issns_secondary))))
 
 ## Erkenntnis is complicated.  The prewar run is almost entirely in German.  The postwar run is almost entirely in English, but includes a lot of non-science analytic philosophy (e.g., political philosophy papers by G.A. Cohen and Harsanyi) and some individuals who might be placed on the margins between philosophy of science and other areas (e.g., Davidson)
@@ -52,7 +54,8 @@ journal_data = issns %>%
     bind_rows() %>%
     select(title, issn, publisher, 
            total_dois) %>%
-    bind_cols(issns) ## clunky, but necessary bc CrossRef doesn't necessarily return the ISSN we gave it
+    ## clunky, but necessary bc CrossRef doesn't necessarily return the ISSN we gave it
+    bind_cols(issns)
 
 ## 72k total papers
 # sum(journal_data$total_dois)
@@ -61,37 +64,24 @@ journal_data = issns %>%
 system.time({
     results = cr_journals(issn = journal_data$issn, works = TRUE, 
                     limit = 1000,
-                    cursor = '*', cursor_max = 10000)
+                    cursor = '*', cursor_max = 10000, 
+                    .progress = 'text')
 })
 
-## About 58k papers
 papers = results$data %>%
-    separate(ISSN, c('issn', 'issn2'), sep = ',') %>% 
+    filter(type != 'journal') %>%
+    separate(ISSN, c('ISSN', 'issn2'), sep = ',', fill = 'right') %>% 
     select(-issn2) %>%
+    ## Left join to get publication_group
     left_join({
         journal_data %>%
-            gather(key = 'key', value = 'issn', issn, issn1) %>%
-            select(issn, journal_group)
-    }, by = 'issn') %>%
-    mutate(pub_date = parse_date_time(issued, c('ym', 'y', 'ymd')), 
-           pub_year = year(pub_date))
+            gather(key = 'key', value = 'ISSN', issn, issn1) %>%
+            select(ISSN, publication_group)
+    }, by = 'ISSN') %>%
+    mutate(publication_series = container.title)
 
-## Papers published in each year
-ggplot(papers, aes(pub_year, fill = journal_group)) + geom_bar()
-
-
-## 29k distinct author names
-## 7.5k names (~70%) only have 1 paper
-author_counts = papers %>%
-    select(doi = DOI, author, journal_group) %>%
-    filter(!map_lgl(papers$author, is.null)) %>%
-    unnest() %>%
-    select(doi:family) %>%
-    filter(!duplicated(.)) %>%
-    count(given, family, journal_group) %>%
-    spread(journal_group, n, fill = 0) %>%
-    arrange(family)
+## Confirm no papers w/ missing publication group
+filter(papers, is.na(publication_group))
 
 ## Write output ----------
-saveRDS(papers, file = '01_papers.rds')
-write_csv(author_counts, path = '01_authors.csv')
+write_rds(papers, path = '01_papers.rds')
