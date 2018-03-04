@@ -10,7 +10,6 @@ issns_primary = c('0031-8248', # Philosophy of Science
           '0039-3681', # Studies A
           '1355-2198', # Studies B
           '1369-8486', # Studies C
-          '0039-7857', # Synthese
           '0169-3867', # Biology and Philosophy
           '0007-0882', # BJPS
           '2152-5188', # HOPOS
@@ -20,9 +19,10 @@ issns_primary = c('0031-8248', # Philosophy of Science
 )
 issns_secondary = c(
           ## ----- Boundary btwn phil sci and analytic
+          '0039-7857', # Synthese
           '0165-0106', # Erkenntnis
           '0269-1728', # Social Epistemology
-          ## ----- Less prominent phil sci
+          ## ----- Less prominent/more specialized phil sci
           '0269-8595', # International Studies in the Philosophy of Science
           '1233-1821', # Foundations of Science
           '0815-0796', # Metascience
