@@ -10,7 +10,6 @@
 library(tidyverse)
 library(lubridate)
 
-## TODO: load from rds
 journal_pubs = read_rds('01_papers.rds')
 book_pubs = read_rds('02_springer_books.rds')
 
@@ -43,10 +42,20 @@ author_counts = authors_df %>%
     spread(publication_group, n, fill = 0L) %>%
     arrange(family)
 
+## 285 papers from Springer journals have encoding errors
+authors_df %>% 
+    filter(str_detect(given, '\ufffd') | 
+               str_detect(family, '\ufffd')) %>% 
+    pull(container.title) %>% 
+    table()
+
 ## Output --------------------
 
 write_rds(pubs_df, path = '03_publications.rds')
 write_rds(authors_df, path = '03_authors.rds')
-write_csv(author_counts, path = '03_names.csv')
+author_counts %>%
+    filter(!str_detect(given, '\ufffd') & 
+               !str_detect(family, '\ufffd')) %>% 
+    write_excel_csv(path = '03_names.csv')
 
 
