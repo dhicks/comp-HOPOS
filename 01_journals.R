@@ -35,9 +35,11 @@ issns_secondary = c(
           '0887-5367', # Hypatia
           '0097-9740', # Signs
           ## ----- Analytic
+          '0003-2638', # Analysis
           '0022-362X', # J Phil
           '0031-8116', # Phil Studies
-          '0031-8205' # PPR
+          '0031-8205', # PPR
+          '2330-4014' # Ergo
 )
 
 issns = tibble(issn = c(issns_primary, issns_secondary), 
