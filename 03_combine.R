@@ -43,6 +43,7 @@ author_counts = authors_df %>%
     arrange(family)
 
 ## 285 papers from Springer journals have encoding errors
+## cf <https://github.com/CrossRef/rest-api-doc/issues/67>
 authors_df %>% 
     filter(str_detect(given, '\ufffd') | 
                str_detect(family, '\ufffd')) %>% 
