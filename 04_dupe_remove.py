@@ -12,9 +12,9 @@ start = time.perf_counter()
 # Read all-lowercase CSV file into a CSV Reader Object.
 file = sys.argv[1]
 origFile = open(file, 'r', encoding ='utf8')
-origFileLow = [line.lower() for line in origFile]
-origFileLow.pop(0) # Remove header line
-origReader = csv.reader(origFileLow)
+origFileList = [line for line in origFile]
+origFileList.pop(0) # Remove header line
+origReader = csv.reader(origFileList)
 
 ### Define starting dictionaries, lists, set. ###
 destDict = {}
@@ -22,6 +22,7 @@ keyDict = {}
 alphaDict = {}
 famList = []
 finalList = []
+checkList = []
 warnSet = set()
 ### Get name of destination file ###
 destName = sys.argv[2]
@@ -29,6 +30,7 @@ destName = sys.argv[2]
 ### Define functions ###
 # normName normalizes the names by stripping out odd characters. 
 def normName(name):
+    name = name.lower()
     badChars = "'.,’`()?"
     name = ' '.join(name.split())
     name = re.sub(r"(\.)(\w)", r"\1 \2", name)
@@ -38,6 +40,12 @@ def normName(name):
             name = name.replace(ch, '')
     name = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('UTF-8')
     name = re.sub(r"wm ", r"william ", name)
+    if name.startswith('de '):
+        name = name.replace('de ', '')
+    if ' de ' in name:
+        name = name.replace(' de ', ' ')
+    if name.endswith(' de'):
+        name = name.replace(' de', '')
     return name
 
 # alphaIndex: build dictionary with letters as keys and indices as list of start/stop values of the sorted list. 
@@ -55,7 +63,8 @@ def alphaIndex(somelist, somedict):
                 break
         if lastChar != '':
             initDict[lastChar][1] = somelist.index(item)
-        lastChar = ch
+        if ch in initDict.keys():
+            lastChar = ch
     # Now create somedict with two-character string keys.
     lastStr = ''
     azSpStr = ' ' + ascii_lowercase
@@ -181,19 +190,23 @@ def notifyUser(itemOne,itemTwo):
 ### Create the dataset to use. ###
 # Create destDict from the list of CSV lines.
 for k1,k2,v1,v2 in origReader:
+    origName = (k1+','+k2)
     k1 = normName(k1)
     k2 = normName(k2)
     givenName = k2.split(' ')
     fullName = (k1+','+k2)
     sortName = tuple(sorted(fullName.replace(' ', '')))
     if len(k1) == 1 and len(k2) <= 3:
+        checkList.append([origName,'IGNORED,IGNORED'])
         continue
     if sortName not in keyDict.keys():
         keyDict[sortName] = fullName
-        destDict[fullName] = [int(v1), int(v2), k1, k2, givenName, True, '']
+        destDict[fullName] = [int(v1), int(v2), k1, k2, givenName, True, '',[origName]]
     else:
         destDict[keyDict[sortName]][0] += int(v1)
         destDict[keyDict[sortName]][1] += int(v2)
+        destDict[keyDict[sortName]][7].append(origName)
+
 
 # Turn dictionary into a sorted list. Find list indexes for start of each letter. Find total occurrences of each family name.
 origList = sorted([[k,v] for k,v in destDict.items()]) 
@@ -220,10 +233,14 @@ for char in alphaDict:
             if isDuplicate(itemOne,itemTwo,countDict) == True:
                 pubUpdate(itemOne,itemTwo)
                 itemOne[1][5] = False
+                for orName in itemOne[1][7]:
+                    itemTwo[1][7].append(orName)
                 break
             elif isDuplicate(itemTwo,itemOne,countDict) == True:
                 pubUpdate(itemTwo,itemOne)
                 itemTwo[1][5] = False
+                for orName in itemTwo[1][7]:
+                    itemOne[1][7].append(orName)
                 continue
             elif notifyUser(itemOne,itemTwo) == True:
                 warnSet.add(itemOne[0])
@@ -233,6 +250,14 @@ for char in alphaDict:
                 continue
 
 nullStrip(origList,finalList)
+############################################################
+### Create dictionary of original names paired to canonical names ###
+for item in finalList:
+    canName = item[0]
+    for orName in item[1][7]:
+        checkList.append([orName,canName])
+
+checkList = sorted(checkList)
 ############################################################
 # write the list to the output file
 destFile = open(destName + '_output_' + datetime.now().strftime('%Y%m%d%H%M') + '.csv', 'w', newline='')
@@ -258,10 +283,26 @@ for item in warnList:
     except:
         pass
 
+# write the verification list to the output file
+veriFile = open(destName + '_verif_' + datetime.now().strftime('%Y%m%d%H%M') + '.csv', 'w', newline='',encoding='utf8')
+veriWriter = csv.writer(veriFile)
+veriWriter.writerow(['Orig Family','Orig Given', 'Canonical Family', 'Canonical Given'])
+
+for item in checkList:
+    try:
+        if ',,' in item[0]:
+            veriWriter.writerow([item[0].split(',,')[0] + ',',item[0].split(',,')[1],string.capwords(item[1].split(',')[0]),string.capwords(item[1].split(',')[1])])
+        else:
+            veriWriter.writerow([item[0].split(',')[0],item[0].split(',')[1],string.capwords(item[1].split(',')[0]),string.capwords(item[1].split(',')[1])])
+    except:
+        print(item)
+        pass
+
 # Close the files
 origFile.close()
 destFile.close()
 warnFile.close()
+veriFile.close()
 end = time.perf_counter()
 perfTime = (end - start)
 print(perfTime)

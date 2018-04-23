@@ -1,4 +1,36 @@
-Script/readme update: 20180331 ####### Contact: Rick Morris (jemorr@ucdavis.edu)
+Script/readme update: 20180421 ####### Contact: Rick Morris (jemorr@ucdavis.edu)
+
+###### Updates from last version: ######
+- Line 15: in origFileList, remove previous .lower method call and place in line
+33, in normName method, to preserve exact original name.
+- Line 25: initialize checkList as an empty list for the output linking original
+names to canonical names.
+- Lines 43-48: remove 'de' from 'X de Y', 'de Y', 'X de' locutions. This
+identifies an additional 9 duplicates.
+- Lines 66-67: instead of automatically changing lastChar to ch and assuming
+that every letter of the alphabet is represented in the data set's family name 
+first letters, use an if statement to check if ch has been added to initDict as
+a key. If not, no update to lastChar.
+- Line 193: initialize origName, which is the exact string of the original 
+family and given names with no modifications. 
+- Line 200: for ignored names not added to data set (usually of format 'a, b c')
+create a list with the ignored name at [0] and 'IGNORED,IGNORED' at [1] and
+append it to checkList.
+- Line 204: add origName in place [7] of the list of values for the new destDict
+item---in order to match every original name with its canonical name.
+- Line 208: when existing destDict item will be updated, append origName to
+existing list of original names in [7].
+- Lines 237,243: append each orName (the original name in the main program 
+loops) in item[1][7] to the canonical item's [1][7] list.
+- Lines 255-260: loop through all output items in FinalList, initializing
+canName, the canonical name, as item[0]. For each item, loop through the list of
+original names in item[1][7] and append [origName, canName] to checkList. Then
+sort checkList.
+- Lines 287-299: Write an output CSV (encoded as UTF-8 due to data input) with
+column headings 'Orig Family','Orig Given', 'Canonical Family', 
+'Canonical Given'. Check if the original name has a double comma ('X,,Y Z'),
+which will mess up the CSV. Depending on result, split on ',' or ',,'. Output
+CSV is destName + '_verif_' + datetime.now().strftime('%Y%m%d%H%M') + '.csv'
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Use summary: From the shell, this script takes a CSV file (as the first argument, 
@@ -17,7 +49,7 @@ in subSCheck() as well, to ensure that 'a,p h' and 'a,j t' are not considered
 duplicates.
 --------------------------------------------------------------------------------
 Formatting assumptions: 
-- UTF-8 CSV: easily modified by removing the encoding argument in line 14.
+- UTF-8 CSV: easily modified by removing the encoding arguments in lines 14, 287.
 - Row with column labels at top: remove line 16; modify lines 240 and 251 as
 appropriate.
 - Columns representing Family Name, Given Name, Primary Pubs, Secondary Pubs: can
@@ -30,7 +62,7 @@ assumptions by modifying pubUpdate() (lines 161-165), pub total assumptions
 Functional summary (numbers not annotated in the script, but this is in reading
 order):
 (1) Get a filename from the command line (first argument), open that file as a
-UTF-8. Put all rows in lowercase. Remove header row. Make a CSV Reader object.
+UTF-8. Remove header row. Make a CSV Reader object.
 
 (2) Initialize the needed dictionaries, lists, and set. 
 
@@ -40,7 +72,7 @@ UTF-8. Put all rows in lowercase. Remove header row. Make a CSV Reader object.
 (4) Define normName function, which removes all periods and other non-
 alphanumeric characters from names, ensures consistent whitespace characters,
 turns all accented characters into nearest ASCII equivalents, and replaces the
-name 'wm ' with 'william'. Returns the name.
+name 'wm ' with 'william'. Remove 'de X'-type locutions. Returns the name.
 
 (5) Define alphaIndex function, which first identifies where each first letter 
 starts and stops in the alphabetically sorted list of names, and then does the
@@ -86,10 +118,11 @@ with the value a list as such:
 'Full,name': [Primary Publications integer, Secondary Publications integer, family
 name  string, given name string, [given name list of first and middle names as 
 separate items], Boolean value True for non-duplicate, empty string '' for the 
-warning flag]. 
+warning flag, list of original names [origName]]. 
 If the sorted name is in the family name dictionary as a key already, then use the 
 corresponding value (the full name) to update the item in the destination 
-dictionary by adding the pub totals together.
+dictionary by adding the pub totals together. Also append new origName to [7] in
+the list of values.
 
 (13) Use a list comprehension to read the destination dictionary into origList of
 key-value pairs turned into lists: [k, v]. Call alphaIndex() on the list to 
@@ -115,16 +148,22 @@ isDuplicate() returns False, then check to see if itemTwo is a duplicate of
 itemOne (and do the converse updating as above). If both return False, call
 notifyUser(), (11) above, to see if they are possible duplicates. If 
 notifyUser() returns True, then change [1][6]---the empty string--to 'Check me'
-in both items, add both items to warn set for the manual check CSV, and continue 
-to the next item. Otherwise, continue to the next item  until stopIndex is 
-reached, then move to the next item in the secondary loop and run the same 
-process until each item within a starting-character-defined portion of the list 
-is checked. Then move to the next item in alphaDict and start all over.
+in both items, add both items to warn set for the manual check CSV, append orName
+to [1][7], and continue to the next item. Otherwise, continue to the next item  
+until stopIndex is reached, then move to the next item in the secondary loop and 
+run the same process until each item within a starting-character-defined portion 
+of the list is checked. Then move to the next item in alphaDict and start all 
+over.
 
 (16) Call nullStrip(), (6) above, to remove all items from the list identified
 as duplicates of another, canonical item. 
 
-(17) Open a destination CSV file as destName+'_output_'+current date/time. 
+(17) loop through all output items in FinalList, initializing
+canName, the canonical name, as item[0]. For each item, loop through the list of
+original names in item[1][7] and append [origName, canName] to checkList. Then
+sort checkList.
+
+(18) Open a destination CSV file as destName+'_output_'+current date/time. 
 (destName from (3) above.) Write a row of column headings. Then write the full 
 canonical  family and given names as the first two columns, and [1][0] and [1][1] 
 (primary  and secondary publication totals) to the third and fourth columns. Put 
@@ -132,10 +171,16 @@ the canonical names into title case using string.capwords(). Write [1][6] to the
 fifth column, indicating whether the user ought to manually check the item as a
 possible duplicate. ('Check me' if yes, blank if no.)
 
-(18) Open a warning CSV file using the same naming convention as above, but with 
+(19) Open a warning CSV file using the same naming convention as above, but with 
 '_warnings_' instead of '_output_'. Write all the names from warnList into the
 CSV so that the user can see how many possible duplicates remain to be checked.
 
-(19) Close all files.
+(20) Write an output CSV (encoded as UTF-8 due to data input) with column 
+headings 'Orig Family','Orig Given', 'Canonical Family', 'Canonical Given'. Check
+if the original name has a double comma ('X,,Y Z'), which will mess up the CSV. 
+Depending on result, split on ',' or ',,'. Output CSV is 
+destName + '_verif_' + datetime.now().strftime('%Y%m%d%H%M') + '.csv'.
+
+(21) Close all files.
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
