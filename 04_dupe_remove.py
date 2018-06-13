@@ -260,7 +260,8 @@ for item in finalList:
 checkList = sorted(checkList)
 ############################################################
 # write the list to the output file
-destFile = open(destName + '_output_' + datetime.now().strftime('%Y%m%d%H%M') + '.csv', 'w', newline='')
+destFile = open(destName + '_output' +  #datetime.now().strftime('%Y%m%d%H%M') + 
+    '.csv', 'w', newline='')
 outputWriter = csv.writer(destFile)
 outputWriter.writerow(['Family','Given','Primary','Secondary','Warn'])
 
@@ -271,7 +272,8 @@ for item in finalList:
         pass
 
 # write the warning list to the output file
-warnFile = open(destName + '_warnings_' + datetime.now().strftime('%Y%m%d%H%M') + '.csv', 'w', newline='')
+warnFile = open(destName + '_warnings' + #datetime.now().strftime('%Y%m%d%H%M') + 
+    '.csv', 'w', newline='')
 warnWriter = csv.writer(warnFile)
 warnWriter.writerow(['Family','Given'])
 warnList = list(warnSet)
@@ -284,7 +286,8 @@ for item in warnList:
         pass
 
 # write the verification list to the output file
-veriFile = open(destName + '_verif_' + datetime.now().strftime('%Y%m%d%H%M') + '.csv', 'w', newline='',encoding='utf8')
+veriFile = open(destName + '_verif' + #datetime.now().strftime('%Y%m%d%H%M') + 
+    '.csv', 'w', newline='',encoding='utf8')
 veriWriter = csv.writer(veriFile)
 veriWriter.writerow(['Orig Family','Orig Given', 'Canonical Family', 'Canonical Given'])
 
