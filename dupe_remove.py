@@ -7,25 +7,6 @@ from Levenshtein import distance
 from collections import Counter
 from string import ascii_lowercase
 
-start = time.perf_counter()
-############################################################
-# Read all-lowercase CSV file into a CSV Reader Object.
-file = sys.argv[1]
-origFile = open(file, 'r', encoding ='utf8')
-origFileList = [line for line in origFile]
-origFileList.pop(0) # Remove header line
-origReader = csv.reader(origFileList)
-
-### Define starting dictionaries, lists, set. ###
-destDict = {}
-keyDict = {}
-alphaDict = {}
-famList = []
-finalList = []
-checkList = []
-warnSet = set()
-### Get name of destination file ###
-destName = sys.argv[2]
 ############################################################
 ### Define functions ###
 # normName normalizes the names by stripping out odd characters. 
@@ -186,126 +167,148 @@ def notifyUser(itemOne,itemTwo):
         return True
     else:
         return False
-############################################################
-### Create the dataset to use. ###
-# Create destDict from the list of CSV lines.
-for k1,k2,v1,v2 in origReader:
-    origName = (k1+','+k2)
-    k1 = normName(k1)
-    k2 = normName(k2)
-    givenName = k2.split(' ')
-    fullName = (k1+','+k2)
-    sortName = tuple(sorted(fullName.replace(' ', '')))
-    if len(k1) == 1 and len(k2) <= 3:
-        checkList.append([origName,'IGNORED,IGNORED'])
-        continue
-    if sortName not in keyDict.keys():
-        keyDict[sortName] = fullName
-        destDict[fullName] = [int(v1), int(v2), k1, k2, givenName, True, '',[origName]]
-    else:
-        destDict[keyDict[sortName]][0] += int(v1)
-        destDict[keyDict[sortName]][1] += int(v2)
-        destDict[keyDict[sortName]][7].append(origName)
-
-
-# Turn dictionary into a sorted list. Find list indexes for start of each letter. Find total occurrences of each family name.
-origList = sorted([[k,v] for k,v in destDict.items()]) 
-alphaIndex(origList,alphaDict)
-for name in origList:
-    famList.append(name[1][2])
-countDict = Counter(famList)
-
-############################################################
-### Main iterations of the program. ###
-for char in alphaDict:
-    startIndex = alphaDict[char][0]
-    stopIndex = alphaDict[char][1]
-    for ndxOne in range(startIndex,(stopIndex-1)):
-        itemOne = origList[ndxOne]
-        if itemOne[1][5] == False:
+        
+if __name__ == '__main__':
+    start = time.perf_counter()
+    ############################################################
+    # Read all-lowercase CSV file into a CSV Reader Object.
+    file = sys.argv[1]
+    origFile = open(file, 'r', encoding ='utf8')
+    origFileList = [line for line in origFile]
+    origFileList.pop(0) # Remove header line
+    origReader = csv.reader(origFileList)
+    
+    ### Define starting dictionaries, lists, set. ###
+    destDict = {}
+    keyDict = {}
+    alphaDict = {}
+    famList = []
+    finalList = []
+    checkList = []
+    warnSet = set()
+    ### Get name of destination file ###
+    destName = sys.argv[2]
+    
+    ############################################################
+    ### Create the dataset to use. ###
+    # Create destDict from the list of CSV lines.
+    for k1,k2,v1,v2 in origReader:
+        origName = (k1+','+k2)
+        k1 = normName(k1)
+        k2 = normName(k2)
+        givenName = k2.split(' ')
+        fullName = (k1+','+k2)
+        sortName = tuple(sorted(fullName.replace(' ', '')))
+        if len(k1) == 1 and len(k2) <= 3:
+            checkList.append([origName,'IGNORED,IGNORED'])
             continue
-        ## Begin the comparison for loop. ##
-        for ndxTwo in range(ndxOne+1,stopIndex):
-            itemTwo = origList[ndxTwo]
-            if itemTwo[1][5] == False: # Continue if itemTwo is previously identified duplicate.
-                continue
-            # Use isDuplicate to look for duplicates.
-            if isDuplicate(itemOne,itemTwo,countDict) == True:
-                pubUpdate(itemOne,itemTwo)
-                itemOne[1][5] = False
-                for orName in itemOne[1][7]:
-                    itemTwo[1][7].append(orName)
-                break
-            elif isDuplicate(itemTwo,itemOne,countDict) == True:
-                pubUpdate(itemTwo,itemOne)
-                itemTwo[1][5] = False
-                for orName in itemTwo[1][7]:
-                    itemOne[1][7].append(orName)
-                continue
-            elif notifyUser(itemOne,itemTwo) == True:
-                warnSet.add(itemOne[0])
-                warnSet.add(itemTwo[0])
-                itemOne[1][6] = 'Check me'
-                itemTwo[1][6] = 'Check me'
-                continue
-
-nullStrip(origList,finalList)
-############################################################
-### Create dictionary of original names paired to canonical names ###
-for item in finalList:
-    canName = item[0]
-    for orName in item[1][7]:
-        checkList.append([orName,canName])
-
-checkList = sorted(checkList)
-############################################################
-# write the list to the output file
-destFile = open(destName + '_output' +  #datetime.now().strftime('%Y%m%d%H%M') + 
-    '.csv', 'w', newline='')
-outputWriter = csv.writer(destFile)
-outputWriter.writerow(['Family','Given','Primary','Secondary','Warn'])
-
-for item in finalList:
-    try:
-        outputWriter.writerow([string.capwords(item[0].split(',')[0]),string.capwords(item[0].split(',')[1]),item[1][0],item[1][1],item[1][6]])
-    except:
-        pass
-
-# write the warning list to the output file
-warnFile = open(destName + '_warnings' + #datetime.now().strftime('%Y%m%d%H%M') + 
-    '.csv', 'w', newline='')
-warnWriter = csv.writer(warnFile)
-warnWriter.writerow(['Family','Given'])
-warnList = list(warnSet)
-warnList = sorted(warnList)
-
-for item in warnList:
-    try:
-        warnWriter.writerow([string.capwords(item.split(',')[0]),string.capwords(item.split(',')[1])])
-    except:
-        pass
-
-# write the verification list to the output file
-veriFile = open(destName + '_verif' + #datetime.now().strftime('%Y%m%d%H%M') + 
-    '.csv', 'w', newline='',encoding='utf8')
-veriWriter = csv.writer(veriFile)
-veriWriter.writerow(['Orig Family','Orig Given', 'Canonical Family', 'Canonical Given'])
-
-for item in checkList:
-    try:
-        if ',,' in item[0]:
-            veriWriter.writerow([item[0].split(',,')[0] + ',',item[0].split(',,')[1],string.capwords(item[1].split(',')[0]),string.capwords(item[1].split(',')[1])])
+        if sortName not in keyDict.keys():
+            keyDict[sortName] = fullName
+            destDict[fullName] = [int(v1), int(v2), k1, k2, givenName, True, '',[origName]]
         else:
-            veriWriter.writerow([item[0].split(',')[0],item[0].split(',')[1],string.capwords(item[1].split(',')[0]),string.capwords(item[1].split(',')[1])])
-    except:
-        print(item)
-        pass
-
-# Close the files
-origFile.close()
-destFile.close()
-warnFile.close()
-veriFile.close()
-end = time.perf_counter()
-perfTime = (end - start)
-print(perfTime)
+            destDict[keyDict[sortName]][0] += int(v1)
+            destDict[keyDict[sortName]][1] += int(v2)
+            destDict[keyDict[sortName]][7].append(origName)
+    
+    
+    # Turn dictionary into a sorted list. Find list indexes for start of each letter. Find total occurrences of each family name.
+    origList = sorted([[k,v] for k,v in destDict.items()]) 
+    alphaIndex(origList,alphaDict)
+    for name in origList:
+        famList.append(name[1][2])
+    countDict = Counter(famList)
+    
+    ############################################################
+    ### Main iterations of the program. ###
+    for char in alphaDict:
+        startIndex = alphaDict[char][0]
+        stopIndex = alphaDict[char][1]
+        for ndxOne in range(startIndex,(stopIndex-1)):
+            itemOne = origList[ndxOne]
+            if itemOne[1][5] == False:
+                continue
+            ## Begin the comparison for loop. ##
+            for ndxTwo in range(ndxOne+1,stopIndex):
+                itemTwo = origList[ndxTwo]
+                if itemTwo[1][5] == False: # Continue if itemTwo is previously identified duplicate.
+                    continue
+                # Use isDuplicate to look for duplicates.
+                if isDuplicate(itemOne,itemTwo,countDict) == True:
+                    pubUpdate(itemOne,itemTwo)
+                    itemOne[1][5] = False
+                    for orName in itemOne[1][7]:
+                        itemTwo[1][7].append(orName)
+                    break
+                elif isDuplicate(itemTwo,itemOne,countDict) == True:
+                    pubUpdate(itemTwo,itemOne)
+                    itemTwo[1][5] = False
+                    for orName in itemTwo[1][7]:
+                        itemOne[1][7].append(orName)
+                    continue
+                elif notifyUser(itemOne,itemTwo) == True:
+                    warnSet.add(itemOne[0])
+                    warnSet.add(itemTwo[0])
+                    itemOne[1][6] = 'Check me'
+                    itemTwo[1][6] = 'Check me'
+                    continue
+    
+    nullStrip(origList,finalList)
+    ############################################################
+    ### Create dictionary of original names paired to canonical names ###
+    for item in finalList:
+        canName = item[0]
+        for orName in item[1][7]:
+            checkList.append([orName,canName])
+    
+    checkList = sorted(checkList)
+    ############################################################
+    # write the list to the output file
+    destFile = open(destName + '_output' +  #datetime.now().strftime('%Y%m%d%H%M') + 
+        '.csv', 'w', newline='')
+    outputWriter = csv.writer(destFile)
+    outputWriter.writerow(['Family','Given','Primary','Secondary','Warn'])
+    
+    for item in finalList:
+        try:
+            outputWriter.writerow([string.capwords(item[0].split(',')[0]),string.capwords(item[0].split(',')[1]),item[1][0],item[1][1],item[1][6]])
+        except:
+            pass
+    
+    # write the warning list to the output file
+    warnFile = open(destName + '_warnings' + #datetime.now().strftime('%Y%m%d%H%M') + 
+        '.csv', 'w', newline='')
+    warnWriter = csv.writer(warnFile)
+    warnWriter.writerow(['Family','Given'])
+    warnList = list(warnSet)
+    warnList = sorted(warnList)
+    
+    for item in warnList:
+        try:
+            warnWriter.writerow([string.capwords(item.split(',')[0]),string.capwords(item.split(',')[1])])
+        except:
+            pass
+    
+    # write the verification list to the output file
+    veriFile = open(destName + '_verif' + #datetime.now().strftime('%Y%m%d%H%M') + 
+        '.csv', 'w', newline='',encoding='utf8')
+    veriWriter = csv.writer(veriFile)
+    veriWriter.writerow(['Orig Family','Orig Given', 'Canonical Family', 'Canonical Given'])
+    
+    for item in checkList:
+        try:
+            if ',,' in item[0]:
+                veriWriter.writerow([item[0].split(',,')[0] + ',',item[0].split(',,')[1],string.capwords(item[1].split(',')[0]),string.capwords(item[1].split(',')[1])])
+            else:
+                veriWriter.writerow([item[0].split(',')[0],item[0].split(',')[1],string.capwords(item[1].split(',')[0]),string.capwords(item[1].split(',')[1])])
+        except:
+            print(item)
+            pass
+    
+    # Close the files
+    origFile.close()
+    destFile.close()
+    warnFile.close()
+    veriFile.close()
+    end = time.perf_counter()
+    perfTime = (end - start)
+    print(perfTime)
