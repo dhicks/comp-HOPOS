@@ -171,7 +171,6 @@ def notifyUser(itemOne,itemTwo):
         return False
 
 if __name__ == '__main__':
-
     start = time.perf_counter()
     ############################################################
     # Read all-lowercase CSV file into a CSV Reader Object.
