@@ -3,7 +3,7 @@
 
 import os, sys, csv, re, unicodedata, time, string
 from datetime import datetime
-from Levenshtein import distance
+from pyxdameraulevenshtein import damerau_levenshtein_distance as distance
 from collections import Counter
 from string import ascii_lowercase
 
