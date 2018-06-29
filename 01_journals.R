@@ -72,14 +72,14 @@ system.time({
 
 papers = results$data %>%
     filter(type != 'journal') %>%
-    separate(ISSN, c('ISSN', 'issn2'), sep = ',', fill = 'right') %>% 
+    separate(issn, c('issn', 'issn2'), sep = ',', fill = 'right') %>% 
     select(-issn2) %>%
     ## Left join to get publication_group
     left_join({
         journal_data %>%
-            gather(key = 'key', value = 'ISSN', issn, issn1) %>%
-            select(ISSN, publication_group)
-    }, by = 'ISSN') %>%
+            gather(key = 'key', value = 'issn', issn, issn1) %>%
+            select(issn, publication_group)
+    }, by = 'issn') %>%
     mutate(publication_series = container.title)
 
 ## Confirm no papers w/ missing publication group

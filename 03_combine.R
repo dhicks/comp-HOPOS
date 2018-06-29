@@ -11,13 +11,17 @@ library(tidyverse)
 library(lubridate)
 
 journal_pubs = read_rds('01_papers.rds')
-book_pubs = read_rds('02_springer_books.rds')
+book_pubs = read_rds('02_springer_books.rds') %>%
+    rename(doi = DOI, isbn = ISBN, issn = ISSN, url = URL)
+mn_pubs = readxl::read_xlsx('00_Minnesota.xlsx') %>%
+    mutate_at(vars(issued, volume), as.character) %>%
+    nest(.key = 'author', given, family)
 
 # setdiff(names(journal_pubs), names(book_pubs))
 # setdiff(names(book_pubs), names(journal_pubs))
 
 ## Combine dataframes --------------------
-pubs_df = bind_rows(journal_pubs, book_pubs) %>%
+pubs_df = bind_rows(journal_pubs, book_pubs, mn_pubs) %>%
     mutate(pub_date = parse_date_time(issued, 
                                       orders = c('ym', 'y', 'ymd')), 
            pub_year = as.integer(year(pub_date)))
@@ -36,7 +40,7 @@ authors_df = pubs_df %>%
     select(-author, -link)
 
 author_counts = authors_df %>%
-    select(DOI, publication_group, family, given) %>%
+    select(doi, publication_group, family, given) %>%
     filter(!duplicated(.), !is.na(publication_group)) %>%
     count(family, given, publication_group) %>%
     spread(publication_group, n, fill = 0L) %>%
