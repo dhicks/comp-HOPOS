@@ -9,8 +9,8 @@ set.seed(42)
 ## Number of names to draw in each sample
 n = 100
 
-## Load dedup'ed name list
-name_df = read_csv('04_names_verif.csv')
+## Load dedupèd name list
+name_df = read_csv('04_names_verif.csv', na = 'Ignored')
 
 ## Samples to look for false positives ----
 ## Strategy:  Draw a sample of canonical names (assigned to multiple original names).  Check for canonical names assigned to multiple distinct individuals. 
