@@ -7,46 +7,51 @@ library(rcrossref)
 ## To filter out the irrelevant stuff later, use inclusion rules for authors after de-duping, eg, need at least 2 papers in primary journals
 
 issns_primary = c('0031-8248', # Philosophy of Science
-          '0039-3681', # Studies A
-          '1355-2198', # Studies B
-          '1369-8486', # Studies C
-          '0169-3867', # Biology and Philosophy
-          '0007-0882', # BJPS
-          '2152-5188', # HOPOS
-          '1879-4912', # EJPS
-          '1063-6145', # Perspectives on Science
-          '1949-0739' # PTP Bio
+                  '0039-3681', # Studies A
+                  '1355-2198', # Studies B
+                  '1369-8486', # Studies C
+                  '0169-3867', # Biology and Philosophy
+                  '0007-0882', # BJPS
+                  '1464-3537', ## Need both ISSNs to get all BJPS results
+                  '2152-5188', # HOPOS
+                  '1879-4912', # EJPS
+                  '1063-6145', # Perspectives on Science
+                  '1949-0739' # PTP Bio
 )
 issns_secondary = c(
-          ## ----- Boundary btwn phil sci and analytic
-          '0039-7857', # Synthese
-          '0165-0106', # Erkenntnis
-          '0269-1728', # Social Epistemology
-          ## ----- Less prominent/more specialized phil sci
-          '0269-8595', # International Studies in the Philosophy of Science
-          '1233-1821', # Foundations of Science
-          '0815-0796', # Metascience
-          '0048-3931', # Philosophy of the Social Sciences
-          '1350-178X', # Journal of Economic Methodology
-          '0015-9018', # Foundations of Physics
-          '0925-4560', # Journal of General Philosophy of Science
-          '2069-0533', # Logos and Episteme
-          ## ----- Feminist phil
-          '0887-5367', # Hypatia
-          '0097-9740', # Signs
-          ## ----- Analytic
-          '0003-2638', # Analysis
-          '0022-362X', # J Phil
-          '0031-8116', # Phil Studies
-          '0031-8205', # PPR
-          '2330-4014' # Ergo
+    ## ----- Boundary btwn phil sci and analytic
+    '0039-7857', # Synthese
+    '0165-0106', # Erkenntnis
+    '0269-1728', # Social Epistemology
+    ## ----- Less prominent/more specialized phil sci
+    '0269-8595', # International Studies in the Philosophy of Science
+    '1233-1821', # Foundations of Science
+    '0815-0796', # Metascience
+    '0048-3931', # Philosophy of the Social Sciences
+    '1350-178X', # Journal of Economic Methodology
+    '0015-9018', # Foundations of Physics
+    '0925-4560', # Journal of General Philosophy of Science
+    '2069-0533', # Logos and Episteme
+    ## ----- Feminist phil
+    '0887-5367', # Hypatia
+    '0097-9740', # Signs
+    ## ----- Analytic
+    '0003-2638', # Analysis
+    '0022-362X', # J Phil
+    '0031-8116', # Phil Studies
+    '0031-8205', # PPR
+    '2330-4014' # Ergo
 )
 
-issns = tibble(issn = c(issns_primary, issns_secondary), 
-       publication_group = c(rep('primary', length(issns_primary)), 
-                         rep('secondary', length(issns_secondary))))
+## NB Hypatia has articles with multiple DOIs, eg, 10.1111/j.1527-2001.2000.tb01079.x, 10.1353/hyp.2000.0002, and 10.2979/hyp.2000.15.1.43
+## Many of the "hyp" DOIs are duplicates (or leftover from before Hypatia was published by Wylie?)
+## But, eg, 10.1353/hyp.2005.0132 is NOT a duplicate of any other record
+## It looks like these are book reviews:  Wylie groups the book reviews in an issue together under a single DOI
+## TRY:  only use the 1. Hypatia ISSN, then filter out the "hyp" DOIs
 
-## Erkenntnis is complicated.  The prewar run is almost entirely in German.  The postwar run is almost entirely in English, but includes a lot of non-science analytic philosophy (e.g., political philosophy papers by G.A. Cohen and Harsanyi) and some individuals who might be placed on the margins between philosophy of science and other areas (e.g., Davidson)
+issns = tibble(issn = c(issns_primary, issns_secondary), 
+               publication_group = c(rep('primary', length(issns_primary)), 
+                                     rep('secondary', length(issns_secondary))))
 
 journal_data = issns %>%
     pull(issn) %>%
@@ -62,16 +67,17 @@ journal_data = issns %>%
 ## 72k total papers
 # sum(journal_data$total_dois)
 
-## Takes about 15 minutes
+## Takes a bit more than 15 minutes
 system.time({
-    results = cr_journals(issn = journal_data$issn, works = TRUE, 
-                    limit = 1000,
-                    cursor = '*', cursor_max = 10000, 
-                    .progress = 'text')
+    results = cr_journals(issn = journal_data$issn1, works = TRUE, 
+                          limit = 1000,
+                          cursor = '*', cursor_max = 15000, 
+                          .progress = 'text')
 })
 
 papers = results$data %>%
-    filter(type != 'journal') %>%
+    filter(type != 'journal', type != 'journal-issue', 
+           !str_detect(doi, 'hyp')) %>%
     separate(issn, c('issn', 'issn2'), sep = ',', fill = 'right') %>% 
     select(-issn2) %>%
     ## Left join to get publication_group
@@ -80,7 +86,8 @@ papers = results$data %>%
             gather(key = 'key', value = 'issn', issn, issn1) %>%
             select(issn, publication_group)
     }, by = 'issn') %>%
-    mutate(publication_series = container.title)
+    mutate(publication_series = container.title) %>%
+    filter(!duplicated(.))
 
 ## Confirm no papers w/ missing publication group
 filter(papers, is.na(publication_group))
