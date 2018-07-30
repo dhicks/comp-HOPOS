@@ -1,36 +1,14 @@
-Script/readme update: 20180421 ####### Contact: Rick Morris (jemorr@ucdavis.edu)
+Script/readme update: 20180729 ####### Contact: Rick Morris (jemorr@ucdavis.edu)
 
 ###### Updates from last version: ######
-- Line 15: in origFileList, remove previous .lower method call and place in line
-33, in normName method, to preserve exact original name.
-- Line 25: initialize checkList as an empty list for the output linking original
-names to canonical names.
-- Lines 43-48: remove 'de' from 'X de Y', 'de Y', 'X de' locutions. This
-identifies an additional 9 duplicates.
-- Lines 66-67: instead of automatically changing lastChar to ch and assuming
-that every letter of the alphabet is represented in the data set's family name 
-first letters, use an if statement to check if ch has been added to initDict as
-a key. If not, no update to lastChar.
-- Line 193: initialize origName, which is the exact string of the original 
-family and given names with no modifications. 
-- Line 200: for ignored names not added to data set (usually of format 'a, b c')
-create a list with the ignored name at [0] and 'IGNORED,IGNORED' at [1] and
-append it to checkList.
-- Line 204: add origName in place [7] of the list of values for the new destDict
-item---in order to match every original name with its canonical name.
-- Line 208: when existing destDict item will be updated, append origName to
-existing list of original names in [7].
-- Lines 237,243: append each orName (the original name in the main program 
-loops) in item[1][7] to the canonical item's [1][7] list.
-- Lines 255-260: loop through all output items in FinalList, initializing
-canName, the canonical name, as item[0]. For each item, loop through the list of
-original names in item[1][7] and append [origName, canName] to checkList. Then
-sort checkList.
-- Lines 287-299: Write an output CSV (encoded as UTF-8 due to data input) with
-column headings 'Orig Family','Orig Given', 'Canonical Family', 
-'Canonical Given'. Check if the original name has a double comma ('X,,Y Z'),
-which will mess up the CSV. Depending on result, split on ',' or ',,'. Output
-CSV is destName + '_verif_' + datetime.now().strftime('%Y%m%d%H%M') + '.csv'
+- line 47, added +1 to the end to ensure that final item on list is checked. 
+(Previous version worked on full data set but not on short datasets; this works 
+on both.)
+- lines 62-64, removed extra call of .index() method. Small optimization change.
+- line 105 uses .startswith() method line 107 adds len()>1 check to avoid overly-
+aggressive matching of initials as substrings. (Was previously checking for the 
+initial *in* the first/middle name, which caused 'r' to match on 'robert' *and*
+on 'gregory'.)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Use summary: From the shell, this script takes a CSV file (as the first argument, 
@@ -39,6 +17,65 @@ argument, 'EXAMPLE'), eliminates duplicate names, and returns both (1) an output
 file with duplicates stripped, and (2) an output file of possible duplicates left 
 in the main file but flagged for the user to check manually. Names in (2) are 
 flagged 'Check me' in (1). Sample command: py dupeRemove.py 'names.csv' 'example'.
+--------------------------------------------------------------------------------
+The standard key:value pair in the dictionary that's initially generated:
+'Full,name': [Primary Publications integer, Secondary Publications integer, 
+family name string, given name string, [given name list of first and middle names 
+as separate items], Boolean value True for non-duplicate, empty string '' for the 
+warning flag, list of original names [origName]]. 
+---------------------------------
+Explanation of item indices after dictionary-based checks are done:
+item[0]: the full working canonical name as a string in 'family,first middle' format.
+item[1]: list of everything else, as below.
+item[1][0]: running primary pub total
+item[1][1]: running secondary pub total
+item[1][2]: family name string
+item[1][3]: given name string
+item[1][4]: list of strings within given name [first, middle]
+item[1][5]: Boolean value True for non-duplicate (changed to False if item is 
+identified as a duplicate)
+item[1][6]: empty string '', changed to the warning flag 'Check me' per (15) in the 
+readme.
+item[1][7]: list of original, non-normed, non-canonical names [oldname1,oldname2...] 
+to generate the verification file.
+--------------------------------------------------------------------------------
+OUTPUT FILE DICTIONARIES (for further details see below in steps 18-21).
+---------------------------------
+_output.csv: the main output file, giving canonical names and publication totals
+
+COLUMN		PURPOSE
+Family		Canonical family name of entry
+Given		Canonical given name of entry
+Primary		Total publications in a primary philosophy of science journal.
+Secondary	Total publications in a secondary philosophy of science journal.
+Warn		Default blank, "Check me" if script identifies possible match.
+---------------------------------
+_warnings.csv: all identified possible matches which are not actually removed
+from the final data set (flagged as "Check me" in _output.csv).
+
+COLUMN		PURPOSE
+Family		Canonical family name of flagged name
+Given		Canonical given name of flagged name
+---------------------------------
+_verif.csv: list of all original input names paired with canonical names to
+allow confirmation of matches.
+
+COLUMN			PURPOSE
+Orig Family		Input family name
+Orig Given		Input given name
+Canonical Family	Canonical family name
+Canonical Given		Canonical given name
+---------------------------------
+_anag.csv: list of all names which are identified as anagrams of another name
+after normName() has been run on the raw input names.
+
+COLUMN		PURPOSE
+Orig Family	Input family name
+Orig Given	Input given name
+Norm Family	Normed family name
+Norm Given	Normed given name
+Anagr Family	Canonical name identified as anagram of normed family name
+Anagr Given	Canonical name identified as anagram of normed given name
 --------------------------------------------------------------------------------
 Possible problematic content assumptions:
 - All true duplicates will match in the first two letters of the family name.
@@ -163,7 +200,7 @@ canName, the canonical name, as item[0]. For each item, loop through the list of
 original names in item[1][7] and append [origName, canName] to checkList. Then
 sort checkList.
 
-(18) Open a destination CSV file as destName+'_output_'+current date/time. 
+(18) Open a destination CSV file as destName+'_output.csv'. 
 (destName from (3) above.) Write a row of column headings. Then write the full 
 canonical  family and given names as the first two columns, and [1][0] and [1][1] 
 (primary  and secondary publication totals) to the third and fourth columns. Put 
@@ -179,8 +216,11 @@ CSV so that the user can see how many possible duplicates remain to be checked.
 headings 'Orig Family','Orig Given', 'Canonical Family', 'Canonical Given'. Check
 if the original name has a double comma ('X,,Y Z'), which will mess up the CSV. 
 Depending on result, split on ',' or ',,'. Output CSV is 
-destName + '_verif_' + datetime.now().strftime('%Y%m%d%H%M') + '.csv'.
+destName + '_verif.csv'.
 
-(21) Close all files.
+(21) Write destName + '_anag.csv', listing all identified anagrams (used to catch
+names out of order), and write them to a csv.
+
+(22) Close all files.
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------

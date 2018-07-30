@@ -1,5 +1,6 @@
 #! python3
 # From the shell, this script takes a CSV file (as the first argument, 'SOMECSV.csv') and an output name string without an extension (as the second argument, 'EXAMPLE'), eliminates duplicate names, and returns both (1) an output file with duplicates stripped, (2) an output file of possible duplicates left in the main file, (3) an output file of all original names paired with canonical names, (4) a list of anagrams identified. Names in (2) are flagged 'Check me' in (1). Sample command: py dupeRemove.py 'names.csv' 'example'.
+# Changes in v4, 20180728: line 47, added +1 to the end. lines 62-64, removed extra call of .index() method. line 105 uses .startswith() method. line 107 adds len()>1 check to avoid overly-aggressive matching of initials as substrings.
 
 import os, sys, csv, re, unicodedata, time, string
 from datetime import datetime
@@ -43,7 +44,7 @@ def alphaIndex(somelist, somedict):
                 a = somelist.index(item)
                 break
         if lastChar != '':
-            initDict[lastChar][1] = somelist.index(item)
+            initDict[lastChar][1] = somelist.index(item) + 1
         if ch in initDict.keys():
             lastChar = ch
     # Now create somedict with two-character string keys.
@@ -59,8 +60,8 @@ def alphaIndex(somelist, somedict):
             for item in somelist[startIndex:stopIndex]:
                 if item[0].startswith(stStr):
                     somedict[stStr] = [0,stopIndex]
-                    somedict[stStr][0] = somelist.index(item)
                     a = somelist.index(item)
+                    somedict[stStr][0] = a
                     break
             if lastStr != '':
                 somedict[lastStr][1] = somelist.index(item) + 1
@@ -101,9 +102,9 @@ def subSCheck(itemOne,itemTwo):
                 except IndexError:
                     itemTwoMiddle = ''
                     itemTwoMI = ''
-                if itemOneFirst in itemTwoFirst and itemTwoMiddle.startswith(itemOneMiddle) and itemOneMiddle != '': # BOOM
+                if itemTwoFirst.startswith(itemOneFirst) and itemTwoMiddle.startswith(itemOneMiddle) and itemOneMiddle != '': 
                     return True
-                elif itemOneFI == itemTwoFI and itemOneMI == itemTwoMI:
+                elif itemOneFI == itemTwoFI and itemOneMI == itemTwoMI and len(itemOneFirst) == 1:
                     return True
                 elif itemTwoMiddle == itemOneFirst and itemOneMiddle == '' and len(itemTwoMiddle) > 1:
                     return True
