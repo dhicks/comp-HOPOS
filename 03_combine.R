@@ -10,12 +10,16 @@
 library(tidyverse)
 library(lubridate)
 
-journal_pubs = read_rds('01_papers.rds')
+journal_pubs = read_rds('01_papers.rds') %>%
+    filter(!duplicated(.))
 book_pubs = read_rds('02_springer_books.rds') %>%
     rename(doi = DOI, isbn = ISBN, issn = ISSN, url = URL)
 mn_pubs = readxl::read_xlsx('00_Minnesota.xlsx') %>%
     mutate_at(vars(issued, volume), as.character) %>%
     nest(.key = 'author', given, family)
+
+## Canonical journal and book series titles
+canonical_titles = read_csv('00_canonical_titles.csv')
 
 # setdiff(names(journal_pubs), names(book_pubs))
 # setdiff(names(book_pubs), names(journal_pubs))
@@ -24,7 +28,15 @@ mn_pubs = readxl::read_xlsx('00_Minnesota.xlsx') %>%
 pubs_df = bind_rows(journal_pubs, book_pubs, mn_pubs) %>%
     mutate(pub_date = parse_date_time(issued, 
                                       orders = c('ym', 'y', 'ymd')), 
-           pub_year = as.integer(year(pub_date)))
+           pub_year = as.integer(year(pub_date))) %>%
+    ## Replace CrossRef journal titles with canonical versions
+    left_join(canonical_titles) %>%
+    mutate(publication_series = case_when(!is.na(pub_canonical) ~ pub_canonical, 
+                                          TRUE ~ NA_character_)) %>%
+    select(-pub_canonical, -n)
+
+# ggplot(pubs_df, aes(pub_year, color = publication_series)) +
+#     geom_freqpoly(binwidth = 1, position = 'stack')
 
 ## Reshape to author-level df --------------------
 authors_df = pubs_df %>%

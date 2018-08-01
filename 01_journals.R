@@ -89,8 +89,9 @@ papers = results$data %>%
     mutate(publication_series = container.title) %>%
     filter(!duplicated(.))
 
-## Confirm no papers w/ missing publication group
+## Confirm no papers w/ missing publication group, publication series
 filter(papers, is.na(publication_group))
+filter(papers, is.na(publication_series))
 
 ## Write output ----------
 write_rds(papers, path = '01_papers.rds')

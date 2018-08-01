@@ -6,20 +6,21 @@ source('api_keys.R')
 
 authors_df_unfltd = read_rds('03_authors.rds') %>%
     filter(!is.na(family))
-## TODO: include names w/ missing canonical names in the final output
 names_df = read_csv('04_names_verif.csv', na = 'Ignored')
 
 ## Combine author-level metadata and canonical names
 authors_df = full_join(authors_df_unfltd, names_df, 
                        by = c('family' = 'Orig Family', 
                               'given' = 'Orig Given')) %>%
+    rename(family_orig = family, 
+           given_orig = given) %>%
     ## Springer had some encoding errors that caused problems w/ deduping
     mutate(family = ifelse(!is.na(`Canonical Family`), 
                            `Canonical Family`, 
-                           family), 
+                           family_orig), 
            given = ifelse(!is.na(`Canonical Given`), 
                           `Canonical Given`, 
-                          given))
+                          given_orig))
 
 ## Filter down to "philosophers of science" 
 phil_sci = authors_df %>%
@@ -44,6 +45,11 @@ phil_sci = phil_sci %>%
     rename(for_gender_attr = split) %>%
     right_join(phil_sci)
 
+phil_sci %>%
+    select(given, family) %>%
+    filter(!duplicated(.)) %>%
+    write_rds('06_phil_sci.Rds')
+
 # phil_sci %>%
 #     select(container.title:pub_year) %>%
 #     # filter(publication_series %in% c('Analysis', 'Journal of Philosophy', 'Philosophical Studies', 'Philosophy and Phenomenological Research')) %>%
@@ -63,7 +69,7 @@ phil_sci = phil_sci %>%
 
 ## Estimated yob is 30±5 years prior to first paper
 author_first_pub = phil_sci %>%
-    group_by(for_gender_attr, family) %>%
+    group_by(for_gender_attr, given, family) %>%
     summarize(first_pub = min(pub_year, na.rm = TRUE)) %>%
     ungroup() %>%
     mutate(yob_low = first_pub - 30 - 5, 
@@ -80,13 +86,14 @@ yob_df = yob_files %>%
     `names<-`(names(yob_files)) %>%
     # head() %>%
     map(read_csv, col_names = c('given', 'gender', 'count')) %>%
-    bind_rows(.id = 'yob')
+    bind_rows(.id = 'yob') %>%
+    rename(for_gender_attr = given)
 
 ## Takes a couple seconds
 gender_blevins = author_first_pub %>%
-    inner_join(yob_df, by = c('for_gender_attr' = 'given')) %>%
+    inner_join(yob_df) %>%
     filter(yob_low <= yob, yob <= yob_high) %>%
-    group_by(for_gender_attr, family, gender) %>%
+    group_by(for_gender_attr, given, family, gender) %>%
     summarize(count = sum(count)) %>%
     spread(gender, count, fill = 0) %>%
     mutate(n = F+M, 
@@ -267,5 +274,32 @@ if (!file.exists(genderize_file)) {
 } else {
     gender_genderize = read_rds(genderize_file)
 }
-}
+
+
+## Combine ----
+
+gender_combined = gender_blevins %>%
+    select(-`F`, -M, -n) %>%
+    full_join(gender_namsor) %>%
+    select(-id) %>%
+    rowwise() %>%
+    mutate(avg = mean(c(prob_f_blevins, prob_f_namsor), 
+                      na.rm = TRUE)) %>%
+    ungroup()
+
+write_rds(gender_combined, '06_gender.Rds')
+
+ggplot(gender_combined, aes(prob_f_blevins, prob_f_namsor)) + 
+    geom_point() +
+    ggrepel::geom_label_repel(aes(label = str_c(given, ' ', family)), 
+                              data = function (dataf) dataf[abs(dataf$prob_f_blevins - dataf$prob_f_namsor) > .5,]) +
+    theme_bw()
+
+ggplot(gender_combined, aes(avg)) + stat_ecdf()
+filter(gender_combined, avg > .25, avg < .75) %>%
+    write_csv('06_indeterminate_gender.csv')
+
+
+
+
 
