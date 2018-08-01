@@ -130,7 +130,7 @@ def spellCheck(itemOne,itemTwo,totalcount):
         if itemTwoPub >= 2:
             surnameDist = distance(itemOneSurname,itemTwoSurname)
             if surnameDist <= 2:
-                if itemOneFirst in itemTwoFirst: 
+                if itemTwoFirst.startswith(itemOneFirst): 
                     if itemOneMiddle != '' and itemTwoMiddle != '' and itemTwoMiddle.startswith(itemOneMiddle):
                         return True
                     elif itemOneMiddle == '' and itemTwoMiddle == '':
