@@ -7,7 +7,30 @@ from datetime import datetime
 from Levenshtein import distance
 from collections import Counter
 from string import ascii_lowercase
-
+############################################################
+### Define the object class ###
+class Entry(object): 
+    def __init__(self):
+        self.canonName = ''
+        self.primPub = 0
+        self.secPub = 0
+        self.origNames = []
+        self.unique = True
+        self.warnFlag = ''
+    
+    def naming(self):
+        self.namelist = self.canonName.split(',')
+        self.famName = self.namelist[0]
+        self.givName = self.namelist[1]
+        self.givenlist = self.givName.split(' ')
+        self.firstName = self.givenlist[0]
+        self.firstInit = self.firstName[0]
+        try:
+            self.midName = self.givenlist[1]
+            self.midInit = self.midName[0]
+        except IndexError:
+            self.midName = ''  
+            self.midInit = ''
 ############################################################
 ### Define functions ###
 # normName normalizes the names by stripping out odd characters. 
@@ -38,7 +61,7 @@ def alphaIndex(somelist, somedict):
     initDict = {}
     for ch in ascii_lowercase:
         for item in somelist[a:b]:
-            if item[0].startswith(ch):
+            if item.canonName.startswith(ch):
                 initDict[ch] = [0,b]
                 initDict[ch][0] = somelist.index(item)
                 a = somelist.index(item)
@@ -58,7 +81,7 @@ def alphaIndex(somelist, somedict):
             char2 = azSpStr[i]
             stStr = char1 + char2
             for item in somelist[startIndex:stopIndex]:
-                if item[0].startswith(stStr):
+                if item.canonName.startswith(stStr):
                     somedict[stStr] = [0,stopIndex]
                     a = somelist.index(item)
                     somedict[stStr][0] = a
@@ -70,38 +93,30 @@ def alphaIndex(somelist, somedict):
             i += 1
     return somedict
 
-# nullStrip: create a finalized list with only True for item[1][5].
+# nullStrip: create a finalized list with only True for item.unique.
 def nullStrip(inList,outList):
     for item in inList:
-        if item[1][5] == True:
+        if item.unique == True:
             outList.append(item)
     return outList
 
 # Check for substrings and close initial matches.
 def subSCheck(itemOne,itemTwo):
-    if itemOne[0] in itemTwo[0] and itemOne != itemTwo:
+    if itemOne.canonName in itemTwo.canonName and itemOne != itemTwo:
         return True
-    elif itemOne[1][3] != '' and itemTwo[1][3] != '':
-        if len(itemTwo[1][4]) > 1:
-            itemOneSurname = itemOne[1][2]
-            itemTwoSurname = itemTwo[1][2]
+    elif itemOne.givName != '' and itemTwo.givName != '':
+        if len(itemTwo.givenlist) > 1:
+            itemOneSurname = itemOne.famName
+            itemTwoSurname = itemTwo.famName
             if itemOneSurname == itemTwoSurname:
-                itemOneFirst = itemOne[1][4][0] # ID First name and initial for itemOne and itemTwo.
-                itemOneFI = itemOneFirst[0]
-                itemTwoFirst = itemTwo[1][4][0]
-                itemTwoFI = itemTwoFirst[0]
-                try: # Try to get middle names and initials for each, or set to empty string.
-                    itemOneMiddle = itemOne[1][4][1]
-                    itemOneMI = itemOneMiddle[0]
-                except IndexError:
-                    itemOneMiddle = ''
-                    itemOneMI = ''
-                try:
-                    itemTwoMiddle = itemTwo[1][4][1]
-                    itemTwoMI = itemTwoMiddle[0]
-                except IndexError:
-                    itemTwoMiddle = ''
-                    itemTwoMI = ''
+                itemOneFirst = itemOne.firstName
+                itemOneFI = itemOne.firstInit
+                itemTwoFirst = itemTwo.firstName
+                itemTwoFI = itemTwo.firstInit
+                itemOneMiddle = itemOne.midName
+                itemOneMI = itemOne.midInit
+                itemTwoMiddle = itemTwo.midName
+                itemTwoMI = itemTwo.midInit
                 if itemTwoFirst.startswith(itemOneFirst) and itemTwoMiddle.startswith(itemOneMiddle) and itemOneMiddle != '': 
                     return True
                 elif itemOneFI == itemTwoFI and itemOneMI == itemTwoMI and len(itemOneFirst) == 1:
@@ -112,20 +127,14 @@ def subSCheck(itemOne,itemTwo):
 
 # Check for spelling variants.
 def spellCheck(itemOne,itemTwo,totalcount):
-    itemOneSurname = itemOne[1][2]
-    itemTwoSurname = itemTwo[1][2]
-    itemOneFirst = itemOne[1][4][0]
-    itemTwoFirst = itemTwo[1][4][0]
-    itemOnePub = itemOne[1][0] + itemOne[1][1]
-    itemTwoPub = itemTwo[1][0] + itemTwo[1][1]
-    try: 
-        itemOneMiddle = itemOne[1][4][1]
-    except IndexError: 
-        itemOneMiddle = ''
-    try:
-        itemTwoMiddle = itemTwo[1][4][1]
-    except IndexError:
-        itemTwoMiddle = ''
+    itemOneSurname = itemOne.famName
+    itemTwoSurname = itemTwo.famName
+    itemOneFirst = itemOne.firstName
+    itemTwoFirst = itemTwo.firstName
+    itemOnePub = itemOne.primPub + itemOne.secPub
+    itemTwoPub = itemTwo.primPub + itemTwo.secPub
+    itemOneMiddle = itemOne.midName
+    itemTwoMiddle = itemTwo.midName
     if totalcount[itemOneSurname] == 1 and itemOnePub == 1 and itemOneSurname != itemTwoSurname:
         if itemTwoPub >= 2:
             surnameDist = distance(itemOneSurname,itemTwoSurname)
@@ -153,20 +162,20 @@ def isDuplicate(itemOne, itemTwo, count):
 
 # Pub total updating function.
 def pubUpdate(itemOne, itemTwo):
-    itemTwo[1][0] += itemOne[1][0]
-    itemTwo[1][1] += itemOne[1][1]
+    itemTwo.primPub += itemOne.primPub
+    itemTwo.secPub += itemOne.secPub
     return itemTwo
 
 # ID possible duplicates for manual check.
 def notifyUser(itemOne,itemTwo):
-    givenOne = itemOne[1][3]
-    fiOne = givenOne[0]
-    famOne = itemOne[1][2]
-    givenTwo = itemTwo[1][3]
-    fiTwo = givenTwo[0]
-    famTwo = itemTwo[1][2]
-    givenDist = distance(givenOne,givenTwo)
-    if famOne == famTwo and fiOne == fiTwo and givenDist <= 3:
+    itemOneGiven = itemOne.givName
+    itemOneFI = itemOne.firstInit
+    itemOneSurname = itemOne.famName
+    itemTwoGiven = itemTwo.givName
+    itemTwoFI = itemTwo.firstInit
+    itemTwoSurname = itemTwo.famName
+    givenDist = distance(itemOneGiven,itemTwoGiven)
+    if itemOneSurname == itemTwoSurname and itemOneFI == itemTwoFI and givenDist <= 3:
         return True
     else:
         return False
@@ -182,6 +191,7 @@ if __name__ == '__main__':
     origReader = csv.reader(origFileList)
 
     ### Define starting dictionaries, lists, set. ###
+    origList = []
     anaDict = {}
     anaOutDict = {}
     destDict = {}
@@ -200,7 +210,6 @@ if __name__ == '__main__':
         origName = (k1+','+k2)
         k1 = normName(k1)
         k2 = normName(k2)
-        givenName = k2.split(' ')
         fullName = (k1+','+k2)
         sortName = tuple(sorted(fullName.replace(' ', '')))
         if len(k1) == 1 and len(k2) <= 3:
@@ -208,21 +217,30 @@ if __name__ == '__main__':
             continue
         if sortName not in keyDict.keys():
             keyDict[sortName] = fullName
-            destDict[fullName] = [int(v1), int(v2), k1, k2, givenName, True, '',[origName]]
+            destDict[fullName] = [int(v1), int(v2),[origName]]
         else:
             anaDict[origName] = [fullName,keyDict[sortName]]
             destDict[keyDict[sortName]][0] += int(v1)
             destDict[keyDict[sortName]][1] += int(v2)
-            destDict[keyDict[sortName]][7].append(origName)
-
-
+            destDict[keyDict[sortName]][2].append(origName)
     # Turn dictionary into a sorted list. Find list indexes for start of each letter. Find total occurrences of each family name.
-    origList = sorted([[k,v] for k,v in destDict.items()]) 
-    alphaIndex(origList,alphaDict)
-    for name in origList:
-        famList.append(name[1][2])
-    countDict = Counter(famList)
+    for k, v in destDict.items():
+        x = Entry()
+        x.canonName = k
+        x.primPub = v[0]
+        x.secPub = v[1]
+        x.unique = True
+        [x.origNames.append(item) for item in v[2]]
+        x.naming()
+        origList.append(x)
 
+    origList.sort(key = lambda x: x.canonName, reverse = False)
+    alphaIndex(origList,alphaDict)
+
+    for name in origList:
+        famList.append(name.famName)
+
+    countDict = Counter(famList)
     ############################################################
     ### Main iterations of the program. ###
     for char in alphaDict:
@@ -230,40 +248,38 @@ if __name__ == '__main__':
         stopIndex = alphaDict[char][1]
         for ndxOne in range(startIndex,(stopIndex-1)):
             itemOne = origList[ndxOne]
-            if itemOne[1][5] == False:
+            if itemOne.unique == False:
                 continue
             ## Begin the comparison for loop. ##
             for ndxTwo in range(ndxOne+1,stopIndex):
                 itemTwo = origList[ndxTwo]
-                if itemTwo[1][5] == False: # Continue if itemTwo is previously identified duplicate.
+                if itemTwo.unique == False: # Continue if itemTwo is previously identified duplicate.
                     continue
                 # Use isDuplicate to look for duplicates.
                 if isDuplicate(itemOne,itemTwo,countDict) == True:
                     pubUpdate(itemOne,itemTwo)
-                    itemOne[1][5] = False
-                    for orName in itemOne[1][7]:
-                        itemTwo[1][7].append(orName)
+                    itemOne.unique = False
+                    [itemTwo.origNames.append(x) for x in itemOne.origNames]
                     break
                 elif isDuplicate(itemTwo,itemOne,countDict) == True:
                     pubUpdate(itemTwo,itemOne)
-                    itemTwo[1][5] = False
-                    for orName in itemTwo[1][7]:
-                        itemOne[1][7].append(orName)
+                    itemTwo.unique = False
+                    [itemOne.origNames.append(x) for x in itemTwo.origNames]
                     continue
                 elif notifyUser(itemOne,itemTwo) == True:
-                    warnSet.add(itemOne[0])
-                    warnSet.add(itemTwo[0])
-                    itemOne[1][6] = 'Check me'
-                    itemTwo[1][6] = 'Check me'
+                    warnSet.add(itemOne.canonName)
+                    warnSet.add(itemTwo.canonName)
+                    itemOne.warnFlag = 'Check me'
+                    itemTwo.warnFlag = 'Check me'
                     continue
 
     nullStrip(origList,finalList)
     ############################################################
     ### Create dictionary of original names paired to canonical names ###
     for item in finalList:
-        canName = item[0]
-        for orName in item[1][7]:
-            checkList.append([orName,canName])
+        canonName = item.canonName
+        for origName in item.origNames:
+            checkList.append([origName,canonName])
 
     checkList = sorted(checkList)
     ############################################################
@@ -285,7 +301,7 @@ if __name__ == '__main__':
 
     for item in finalList:
         try:
-            outputWriter.writerow([string.capwords(item[0].split(',')[0]),string.capwords(item[0].split(',')[1]),item[1][0],item[1][1],item[1][6]])
+            outputWriter.writerow([string.capwords(item.canonName.split(',')[0]),string.capwords(item.canonName.split(',')[1]),item.primPub,item.secPub,item.warnFlag])
         except:
             pass
 
