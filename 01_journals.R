@@ -40,7 +40,8 @@ issns_secondary = c(
     '0022-362X', # J Phil
     '0031-8116', # Phil Studies
     '0031-8205', # PPR
-    '2330-4014' # Ergo
+    '2330-4014', # Ergo
+    '0026-9662' # Monist
 )
 
 ## NB Hypatia has articles with multiple DOIs, eg, 10.1111/j.1527-2001.2000.tb01079.x, 10.1353/hyp.2000.0002, and 10.2979/hyp.2000.15.1.43
@@ -63,9 +64,6 @@ journal_data = issns %>%
            total_dois) %>%
     ## clunky, but necessary bc CrossRef doesn't necessarily return the ISSN we gave it
     bind_cols(issns)
-
-## 72k total papers
-# sum(journal_data$total_dois)
 
 ## Takes a bit more than 15 minutes
 system.time({
