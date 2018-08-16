@@ -26,10 +26,7 @@ authors_df = authors_df_unfltd %>%
     ## Filter down to philosophers of science
     inner_join(phil_sci) %>%
     ## Join gender attribution
-    left_join(gender_df) %>%
-    mutate(gender_attr = case_when(avg < .25 ~ 'm', 
-                                   avg > .75 ~ 'f', 
-                                   TRUE ~ 'indet'))
+    left_join(gender_df)
 
 ## Output ----
 write_rds(authors_df, '07_dataset.Rds')
@@ -88,6 +85,14 @@ authors_df %>%
     labs(x = 'Year', y = 'Author count') +
     scale_x_continuous(limits = c(NA, 2017))
 ggsave('07_authors_per_year.png', width = 6, height = 6*3/5)
+
+## Authors active prior to 1920
+authors_df %>%
+    count(pub_year, family, given, gender_attr) %>%
+    filter(pub_year < 1920) %>%
+    group_by(family, given, gender_attr) %>%
+    summarize(n = sum(n)) %>%
+    arrange(desc(n))
 
 ## Fraction of women authors per year
 authors_df %>%
@@ -211,7 +216,10 @@ authors_df %>%
 ## Gender distribution by journal over time
 authors_df %>%
     count(pub_year, gender_attr, publication_series) %>%
-    ggplot(aes(pub_year, n, color = gender_attr)) + 
+    group_by(pub_year, publication_series) %>%
+    mutate(frac = n / sum(n)) %>%
+    filter(gender_attr == 'f') %>%
+    ggplot(aes(pub_year, frac, color = gender_attr)) + 
     geom_line() +
     facet_wrap(~ publication_series, scales = 'free') +
     color_gender
@@ -219,7 +227,7 @@ authors_df %>%
 ## Gender distribution in 6 major journals over time
 authors_df %>%
     filter(publication_series %in% c('Philosophy of Science', 'BJPS', 'Biology & Philosophy', 
-                                     'Studies HPS A', 'Studies HPS B', 'Studies HPS C')) %>%
+                                     'Studies in HPS A', 'Studies in HPS B', 'Studies in HPS C')) %>%
     count(pub_year, publication_series, gender_attr) %>%
     group_by(pub_year, publication_series) %>%
     mutate(perc = n / sum(n)) %>%
