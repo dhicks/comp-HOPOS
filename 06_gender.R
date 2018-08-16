@@ -1,4 +1,14 @@
 ## Filter down to philosophers of science and attribute gender
+##
+## This script accesses files in the repository available at <https://github.com/cblevins/Gender-ID-By-Time>.  To use the script as configured, clone this script into the working directory.  
+## This script also accesses APIs for two subscription services, [NamSor](http://www.namsor.com/) and [genderize.io](https://genderize.io/).  
+## After subscribing to those services, create a file `api_keys.R` in the working directory, and add API keys with the following format:  
+## ```
+## namsor_key = 'stringofcharacters'
+## namsor_user = 'namsor.com/e@mail.com/12345'
+## genderize.io_key = 'otherstringofcharacters'
+## ```
+
 ## Setup ----
 library(tidyverse)
 
@@ -9,7 +19,7 @@ authors_df_unfltd = read_rds('03_authors.rds') %>%
 names_df = read_csv('04_names_verif.csv', na = 'Ignored')
 
 ## Combine author-level metadata and canonical names
-authors_df = full_join(authors_df_unfltd, names_df, 
+authors_df = left_join(authors_df_unfltd, names_df, 
                        by = c('family' = 'Orig Family', 
                               'given' = 'Orig Given')) %>%
     rename(family_orig = family, 
@@ -20,7 +30,11 @@ authors_df = full_join(authors_df_unfltd, names_df,
                            family_orig), 
            given = ifelse(!is.na(`Canonical Given`), 
                           `Canonical Given`, 
-                          given_orig))
+                          given_orig)) %>%
+    ## Erkenntnis is primary prior to 1941
+    mutate(publication_group = case_when(
+        publication_series == 'Erkenntnis' & pub_year < 1941 ~ 'primary', 
+        TRUE ~ publication_group))
 
 ## Filter down to "philosophers of science" 
 phil_sci = authors_df %>%
@@ -50,18 +64,37 @@ phil_sci %>%
     filter(!duplicated(.)) %>%
     write_rds('06_phil_sci.Rds')
 
+## Num. philosophy of science articles published in analytic journals
 # phil_sci %>%
-#     select(container.title:pub_year) %>%
-#     # filter(publication_series %in% c('Analysis', 'Journal of Philosophy', 'Philosophical Studies', 'Philosophy and Phenomenological Research')) %>%
+#     select(doi, container.title:pub_year,
+#            publication_group, publication_series) %>%
+#     filter(publication_group == 'analytic') %>%
 #     filter(!duplicated(.)) %>%
-#     ggplot(aes(pub_year, color = publication_group)) +
+#     ggplot(aes(pub_year)) +
 #     geom_point(stat = 'count') +
 #     geom_line(stat = 'count')
 
+## Num. phil sci articles published across pub groups
 # phil_sci %>%
-#     filter(publication_series == 'Philosophy and Phenomenological Research') %>%
-#     select(given, family, title, pub_year) %>% View
-#     write_csv('analysis.csv')
+#     select(doi, container.title:pub_year, 
+#            publication_group, publication_series) %>%
+#     filter(!duplicated(.)) %>%
+#     count(pub_year, publication_group) %>%
+#     ggplot(aes(pub_year, n, color = publication_group)) +
+#     geom_line()
+
+## Frac. phil sci articles across pub groups
+## This is a nice one for showing that phil sci is gradually separating from analytic phil
+# phil_sci %>%
+#     select(doi, container.title:pub_year, 
+#            publication_group, publication_series) %>%
+#     filter(!duplicated(.)) %>%
+#     count(pub_year, publication_group) %>%
+#     group_by(pub_year) %>%
+#     mutate(frac = n / sum(n)) %>%
+#     ungroup() %>%
+#     ggplot(aes(pub_year, frac, color = publication_group)) +
+#     geom_line()
 
 
 ## Cameron Blevins: Gender ID by time ----
@@ -91,13 +124,14 @@ yob_df = yob_files %>%
 
 ## Takes a couple seconds
 gender_blevins = author_first_pub %>%
-    inner_join(yob_df) %>%
-    filter(yob_low <= yob, yob <= yob_high) %>%
+    left_join(yob_df) %>%
+    filter((yob_low <= yob & yob <= yob_high) | is.na(yob)) %>%
     group_by(for_gender_attr, given, family, gender) %>%
     summarize(count = sum(count)) %>%
     spread(gender, count, fill = 0) %>%
+    select(-`<NA>`) %>%
     mutate(n = F+M, 
-           prob_f_blevins = F / n, 
+           prob_f_blevins = ifelse(n > 0, F / n, NA),
            gender_blevins = case_when(prob_f_blevins < .25 ~ 'm', 
                                       prob_f_blevins > .75 ~ 'f', 
                                       TRUE ~ 'indeterminate')) %>%
@@ -128,17 +162,17 @@ gender_blevins = author_first_pub %>%
 #                         secret = namsor_key, user = namsor_user))}
 
 ## One-name-at-a-time version
-# namsor = function(given, family, namsor_key = NULL, namsor_user = NULL) {
-#     query_url = str_c('https://api.namsor.com/onomastics/api/json/gender/', 
-#                       curlEscape(given), '/', curlEscape(family))
-#     full_url = str_c(query_url, '?key1=', namsor_key, 
-#                      '&key2=', namsor_user)
-#     print(query_url)
-#     response = RCurl::getURL(full_url)
-#     json = jsonlite::fromJSON(response)
-#     json = jsonlite:::null_to_na(json)
-#     return(json)
-# }
+namsor = function(given, family, namsor_key = NULL, namsor_user = NULL) {
+    query_url = str_c('https://api.namsor.com/onomastics/api/json/gender/',
+                      RCurl::curlEscape(given), '/', RCurl::curlEscape(family))
+    full_url = str_c(query_url, '?key1=', namsor_key,
+                     '&key2=', namsor_user)
+    print(query_url)
+    response = RCurl::getURL(full_url)
+    json = jsonlite::fromJSON(response)
+    json = jsonlite:::null_to_na(json)
+    return(json)
+}
 # 
 # phil_sci %>%
 #     select(given, family) %>%
@@ -260,17 +294,18 @@ if (!file.exists(genderize_file)) {
     gender_genderize = chunks_genderize %>%
         map_dfr(genderize_list, api_key = genderize.io_key)
     # tictoc::toc()
-    
+
     gender_genderize = gender_genderize %>%
         ## Rescale output variables
-        mutate(gender = case_when(gender == 'male' ~ 'm', 
-                                  gender == 'female' ~ 'f', 
-                                  is.na(gender) ~ 'indeterminate'), 
+        mutate(gender = case_when(gender == 'male' ~ 'm',
+                                  gender == 'female' ~ 'f',
+                                  is.na(gender) ~ 'indeterminate'),
                probability = ifelse(gender == 'm', 1-probability, probability)) %>%
-        rename(gender_genderize = gender, 
-               prob_f_genderize = probability)
-    
-    write_rds(gender_genderize, genderize_file) 
+        rename(prob_f_genderize = probability, 
+               gender_genderize = gender,
+               for_gender_attr = name)
+
+    write_rds(gender_genderize, genderize_file)
 } else {
     gender_genderize = read_rds(genderize_file)
 }
@@ -282,21 +317,28 @@ gender_combined = gender_blevins %>%
     select(-`F`, -M, -n) %>%
     full_join(gender_namsor) %>%
     select(-id) %>%
+    full_join(gender_genderize) %>%
+    select(-count) %>%
     rowwise() %>%
-    mutate(avg = mean(c(prob_f_blevins, prob_f_namsor), 
+    mutate(avg = mean(c(prob_f_blevins, 
+                        prob_f_namsor,
+                        prob_f_genderize), 
                       na.rm = TRUE)) %>%
-    ungroup()
+    ungroup() %>%
+    mutate(gender_attr = case_when(avg < .25 ~ 'm', 
+                                   avg > .75 ~ 'f', 
+                                   TRUE ~ 'indet'))
 
 write_rds(gender_combined, '06_gender.Rds')
 
-ggplot(gender_combined, aes(prob_f_blevins, prob_f_namsor)) + 
-    geom_point() +
-    ggrepel::geom_label_repel(aes(label = str_c(given, ' ', family)), 
-                              data = function (dataf) dataf[abs(dataf$prob_f_blevins - dataf$prob_f_namsor) > .5,]) +
-    theme_bw()
+# ggplot(gender_combined, aes(prob_f_blevins, prob_f_namsor)) + 
+#     geom_point() +
+#     ggrepel::geom_label_repel(aes(label = str_c(given, ' ', family)), 
+#                               data = function (dataf) dataf[abs(dataf$prob_f_blevins - dataf$prob_f_namsor) > .5,]) +
+#     theme_bw()
 
 ggplot(gender_combined, aes(avg)) + stat_ecdf()
-filter(gender_combined, avg > .25, avg < .75) %>%
+filter(gender_combined, gender_attr == 'indet') %>% 
     write_csv('06_indeterminate_gender.csv')
 
 
