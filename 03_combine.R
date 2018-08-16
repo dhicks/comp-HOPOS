@@ -19,7 +19,7 @@ mn_pubs = readxl::read_xlsx('00_Minnesota.xlsx') %>%
     nest(.key = 'author', given, family)
 
 ## Canonical journal and book series titles
-canonical_titles = read_csv('00_canonical_titles.csv')
+canonical_titles = read_csv('01_canonical_titles.csv')
 
 # setdiff(names(journal_pubs), names(book_pubs))
 # setdiff(names(book_pubs), names(journal_pubs))
@@ -56,20 +56,25 @@ author_counts = authors_df %>%
     filter(!duplicated(.), !is.na(publication_group)) %>%
     count(family, given, publication_group) %>%
     spread(publication_group, n, fill = 0L) %>%
+    mutate(secondary = secondary + analytic + feminist) %>%
+    select(-analytic, -feminist) %>%
     arrange(family)
 
-## 285 papers from Springer journals have encoding errors
+## 298 papers, mostly from Springer journals, have encoding errors
 ## cf <https://github.com/CrossRef/rest-api-doc/issues/67>
 authors_df %>% 
     filter(str_detect(given, '\ufffd') | 
                str_detect(family, '\ufffd')) %>% 
-    pull(container.title) %>% 
-    table()
+    count(publication_series) #%>%
+    # pull(n) %>% sum()
+    
 
 ## Output --------------------
 
 write_rds(pubs_df, path = '03_publications.rds')
 write_rds(authors_df, path = '03_authors.rds')
+
+## Python script used in 04 can't handle the encoding errors
 author_counts %>%
     filter(!str_detect(given, '\ufffd') & 
                !str_detect(family, '\ufffd')) %>% 

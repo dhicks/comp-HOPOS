@@ -73,6 +73,16 @@ issns = tibble(issn = c(issns_primary, issns_secondary,
                                      rep('feminist', length(issns_feminist)), 
                                      rep('analytic', length(issns_analytic))))
 
+## A few articles return with an ISSN that doesn't show up in the issns table
+variant_issns = tribble(
+    ~issn, ~publication_group, 
+    '0026-1068', 'analytic',
+    '0066-7374', 'analytic', 
+    '0269-8897', 'secondary', 
+    '0000-0000', 'secondary', 
+    '0167-7411', 'analytic'
+)
+
 journal_data = issns %>%
     pull(issn) %>%
     map(cr_journals) %>%
@@ -84,15 +94,16 @@ journal_data = issns %>%
     ## clunky, but necessary bc CrossRef doesn't necessarily return the ISSN we gave it
     bind_cols(issns)
 
-## Takes a bit more than 15 minutes
+## ~24 minutes
 system.time({
     results = cr_journals(issn = journal_data$issn1, works = TRUE, 
                           limit = 1000,
-                          cursor = '*', cursor_max = 15000, 
+                          cursor = '*', cursor_max = 20000, 
                           .progress = 'text')
 })
 
-papers = results$data %>%
+papers = results$data %>% 
+    rename(doi = DOI, issn = ISSN) %>%
     filter(type != 'journal', type != 'journal-issue', 
            ## Deal w/ the Hypatia duplication issue noted above
            !str_detect(doi, 'hyp')) %>%
@@ -102,14 +113,20 @@ papers = results$data %>%
     left_join({
         journal_data %>%
             gather(key = 'key', value = 'issn', issn, issn1) %>%
-            select(issn, publication_group)
+            select(issn, publication_group) %>%
+            bind_rows(variant_issns)
     }, by = 'issn') %>%
-    mutate(publication_series = container.title) %>%
+    rename(publication_series = container.title) %>%
     filter(!duplicated(.))
 
-## Confirm no papers w/ missing publication group, publication series
-filter(papers, is.na(publication_group))
+## Confirm no papers w/ missing publication group, publication series, DOI
+filter(papers, is.na(publication_group)) %>%
+    count(publication_series, issn)
 filter(papers, is.na(publication_series))
+filter(papers, is.na(doi))
 
 ## Write output ----------
+papers %>%
+    count(publication_series) %>%
+    write_csv('01_journal_data.csv')
 write_rds(papers, path = '01_papers.rds')
