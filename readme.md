@@ -51,4 +51,19 @@ Currently, philosophers of science are identified as authors who (after name dis
 
 # Files Overview #
 
+- `00_Boston.csv`: Volume-level information for Boston book series
+- `00_Minnesota.xlsx`: Chapter-level information for the Minnesota book series
+- `00_Western_Ontario.csv`: Volume-level information for the Western Ontario book series
+- `01_canonical_titles.csv`: Canonical titles for journals
+- `01_journals.R`: Retrieve metadata for journal articles using CrossRef API
+- `02_springer_books.R`: Retrieve metadata for Springer-published book chapters using Springer website + CrossRef API
+- `03_combine.R`: Combine data retrieved in previous two scripts
+- `04_dedupe_names.R`: R wrapper around `04_dupe_remove.py`
+- `04_dupe_remove.py`: Primary Python script used for author name disambiguation
+- `04_qc_file_diffs.py`: Auxiliary Python script used for author name disambiguation
+- `04_readme.txt`: Readme for Python scripts
+- `05_verify_samples.R`: Generates subsets of author disambiguation output files for manual review
+- `06_gender.R`:  Identifies philosophers of science in the dataset and attributes gender based on author name
+- `07_dataset.R	`:  Combines metadataset with gender attribution into dataset suitable for public distribution
+- `readme.md`:  This readme
 
