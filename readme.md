@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/121652355.svg)](https://zenodo.org/badge/latestdoi/121652355)
+
 This repository contains the complete scripts and data files used to construct the Computational History of Philosophy of Science (Comp HOPOS) dataset.  This readme file contains information on reproducing the dataset (and modifying the scripts for other purposes); a license statement; a brief overview of the method by which the dataset is constructed; and an overview of the files included in the repository.  
 
 The dataset can be downloaded at <link>.  The downloads include a data dictionary.  A paper describing the motivations and construction method in more detail is available at <link>.  
