@@ -2,7 +2,7 @@
 
 This repository contains the complete scripts and data files used to construct the Computational History of Philosophy of Science (Comp HOPOS) dataset.  This readme file contains information on reproducing the dataset (and modifying the scripts for other purposes); a license statement; a brief overview of the method by which the dataset is constructed; and an overview of the files included in the repository.  
 
-The dataset can be downloaded at <link>.  The downloads include a data dictionary.  A paper describing the motivations and construction method in more detail is available at <link>.  
+The dataset can be downloaded at <https://doi.org/10.5281/zenodo.1400633>.  The downloads include a data dictionary.  A paper describing the motivations and construction method in more detail is available at <link>.  
 
 These scripts were developed by Daniel J. Hicks, Rick Morris, and Evelyn Brister.  The repository is maintained by Daniel J. Hicks.  To report errors or other issues, please use the issue tracker for this repository (preferred) or email <hicks.daniel.j@gmail.com>.  
 
