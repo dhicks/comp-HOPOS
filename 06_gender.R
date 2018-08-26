@@ -16,12 +16,20 @@ source('api_keys.R')
 
 authors_df_unfltd = read_rds('03_authors.rds') %>%
     filter(!is.na(family))
-names_df = read_csv('04_names_verif.csv', na = 'Ignored')
+names_df = read_csv('04_names_verif.csv', na = 'Ignored') %>%
+    filter(!duplicated(.)) %>%
+    mutate(`Canonical Family` = ifelse(is.na(`Canonical Family`), 
+                                       `Orig Family`, 
+                                       `Canonical Family`), 
+           `Canonical Given` = ifelse(is.na(`Canonical Given`), 
+                                      `Orig Given`, 
+                                      `Canonical Given`))
 
 ## Combine author-level metadata and canonical names
-authors_df = left_join(authors_df_unfltd, names_df, 
-                       by = c('family' = 'Orig Family', 
-                              'given' = 'Orig Given')) %>%
+authors_df = authors_df_unfltd %>%
+    left_join(names_df, 
+              by = c('family' = 'Orig Family', 
+                     'given' = 'Orig Given')) %>%
     rename(family_orig = family, 
            given_orig = given) %>%
     ## Springer had some encoding errors that caused problems w/ deduping
@@ -294,7 +302,7 @@ if (!file.exists(genderize_file)) {
     gender_genderize = chunks_genderize %>%
         map_dfr(genderize_list, api_key = genderize.io_key)
     # tictoc::toc()
-
+    
     gender_genderize = gender_genderize %>%
         ## Rescale output variables
         mutate(gender = case_when(gender == 'male' ~ 'm',
@@ -304,7 +312,7 @@ if (!file.exists(genderize_file)) {
         rename(prob_f_genderize = probability, 
                gender_genderize = gender,
                for_gender_attr = name)
-
+    
     write_rds(gender_genderize, genderize_file)
 } else {
     gender_genderize = read_rds(genderize_file)
@@ -313,12 +321,15 @@ if (!file.exists(genderize_file)) {
 
 ## Combine ----
 
-gender_combined = gender_blevins %>%
+gender_combined = phil_sci %>%
+    select(for_gender_attr, given, family) %>%
+    filter(!duplicated(.)) %>%
+    left_join(gender_blevins) %>% 
     select(-`F`, -M, -n) %>%
-    full_join(gender_namsor) %>%
+    left_join(gender_namsor) %>%
     select(-id) %>%
-    full_join(gender_genderize) %>%
-    select(-count) %>%
+    left_join(gender_genderize) %>%
+    select(-count) %>% 
     rowwise() %>%
     mutate(avg = mean(c(prob_f_blevins, 
                         prob_f_namsor,

@@ -3,7 +3,13 @@ library(tidyverse)
 authors_unfltd = read_rds('03_authors.rds') %>%
     filter(!duplicated(.))
 names_df = read_csv('04_names_verif.csv', na = 'Ignored') %>%
-    filter(!duplicated(.))
+    filter(!duplicated(.)) %>%
+    mutate(`Canonical Family` = ifelse(is.na(`Canonical Family`), 
+                                       `Orig Family`, 
+                                       `Canonical Family`), 
+           `Canonical Given` = ifelse(is.na(`Canonical Given`), 
+                                       `Orig Given`, 
+                                       `Canonical Given`))
 
 phil_sci = read_rds('06_phil_sci.Rds')
 
@@ -34,8 +40,12 @@ authors_phs = inner_join(authors_full, phil_sci)
 
 
 ## Publication-wise formats
-pubs_full = nest(authors_full, given_orig:gender_attr, .key = 'author_data')
-pubs_phs = nest(authors_phs, given_orig:gender_attr, .key = 'author_data')
+pubs_full = nest(authors_full, given_orig:gender_attr, 
+                 .key = 'author_data') %>%
+    mutate(n_authors = map_int(author_data, nrow))
+pubs_phs = nest(authors_phs, given_orig:gender_attr, 
+                .key = 'author_data') %>%
+    mutate(n_authors = map_int(author_data, nrow))
 
 
 ## Output ----
