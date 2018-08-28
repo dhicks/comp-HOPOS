@@ -9,9 +9,9 @@ library(foreach)
 library(rcrossref)
 
 ## Load upstream CSVs ----------
-boston_df = read_csv('00_Boston.csv') %>%
+boston_df = read_csv('../data/00_Boston.csv') %>%
     mutate(URL = str_replace(URL, 'http', 'https'))
-western_df = read_csv('00_Western_Ontario.csv') %>%
+western_df = read_csv('../data/00_Western_Ontario.csv') %>%
     mutate(URL = str_replace(URL, 'http', 'https'))
 
 book_series_df = bind_rows(list('Boston SH&PS' = boston_df, 
@@ -110,4 +110,4 @@ springer_books_df = cr_df$data %>%
               by = c('book_url' = 'URL'))
 
 ## Save results ----------
-write_rds(springer_books_df, path = '02_springer_books.rds')
+write_rds(springer_books_df, path = '../data/02_springer_books.rds')

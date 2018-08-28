@@ -10,7 +10,7 @@ set.seed(42)
 n = 100
 
 ## Load dedupèd name list
-name_df = read_csv('04_names_verif.csv', na = 'Ignored')
+name_df = read_csv('../data/04_names_verif.csv', na = 'Ignored')
 
 ## Samples to look for false positives ----
 ## Strategy:  Draw a sample of canonical names (assigned to multiple original names).  Check for canonical names assigned to multiple distinct individuals. 
@@ -26,13 +26,13 @@ fpos_1 %>%
     arrange(`Canonical Family`, `Canonical Given`) %>%
     select(`Canonical Family`, `Canonical Given`, 
            `Orig Family`, `Orig Given`) %>%
-    write_csv('05_fpos_1.csv')
+    write_csv('../data/05_fpos_1.csv')
 fpos_2 %>%
     inner_join(name_df) %>%
     arrange(`Canonical Family`, `Canonical Given`) %>%
     select(`Canonical Family`, `Canonical Given`, 
            `Orig Family`, `Orig Given`) %>%
-    write_csv('05_fpos_2.csv')
+    write_csv('../data/05_fpos_2.csv')
 
 
 ## Samples to look for false negatives ----
@@ -50,13 +50,13 @@ fneg_1 %>%
     select(`Orig Family`) %>%
     inner_join(name_df) %>%
     arrange(`Orig Family`, `Orig Given`) %>%
-    write_csv('05_fneg_1.csv')
+    write_csv('../data/05_fneg_1.csv')
 fneg_2 %>%
     inner_join(name_df) %>%
     select(`Orig Family`) %>%
     inner_join(name_df) %>%
     arrange(`Orig Family`, `Orig Given`) %>%
-    write_csv('05_fneg_2.csv')
+    write_csv('../data/05_fneg_2.csv')
 
 
 
