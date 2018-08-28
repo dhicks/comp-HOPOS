@@ -21,17 +21,17 @@ issns_primary = c('0031-8248', # Philosophy of Science
 )
 issns_secondary = c(
     ## ----- Boundary btwn phil sci and other disciplines
+    '1233-1821', # Foundations of Science
+    '0015-9018', # Foundations of Physics
+    '1350-178X', # Journal of Economic Methodology
+    '2069-0533', # Logos and Episteme
+    '0926-7220', # Science and Education
+    '1474-0664', # Science in Context
+    '0162-2439', # ST&HV
+    '1913-0465', # Spontaneous Generations
     '0039-3681', # Studies A
     '1355-2198', # Studies B
-    '1369-8486', # Studies C
-    '1233-1821', # Foundations of Science
-    '1350-178X', # Journal of Economic Methodology
-    '0015-9018', # Foundations of Physics
-    '2069-0533', # Logos and Episteme
-    '1913-0465', # Spontaneous Generations
-    '1474-0664', # Science in Context
-    '0926-7220', # Science and Education
-    '0162-2439' # ST&HV
+    '1369-8486' # Studies C
 )
 issns_feminist = c(
     ## ----- Feminist phil
@@ -40,24 +40,24 @@ issns_feminist = c(
 )
 issns_analytic = c(
     ## ----- Boundary btwn phil sci and analytic
-    '0039-7857', # Synthese
     '0165-0106', # Erkenntnis
+    '0039-7857', # Synthese
     '0269-1728', # Social Epistemology
     ## ----- Analytic
+    #'0003-0481' # APQ - not indexed by CrossRef
     '0003-2638', # Analysis
-    '0022-362X', # J Phil
-    '0031-8116', # Phil Studies
-    '0031-8205', # PPR
     '2330-4014', # Ergo
+    '1742-3600', # Episteme
+    '0022-362X', # J Phil
+    '1467-9973', # Metaphilosophy
     '0026-9662', # Monist
     '0026-4423', # Mind
-    '1467-9264', # Proc. Aristotelean Soc.
-    '0031-8108', # Phil Review
-    #'0003-0481' # APQ - not indexed by CrossRef
     '0029-4624', # Nous
-    '1572-8749', # Topoi
-    '1742-3600', # Episteme
-    '1467-9973' # Metaphilosophy
+    '0031-8108', # Phil Review
+    '0031-8116', # Phil Studies
+    '0031-8205', # PPR
+    '1467-9264', # Proc. Aristotelean Soc.
+    '1572-8749' # Topoi
 )
 
 ## NB Hypatia has articles with multiple DOIs, eg, 10.1111/j.1527-2001.2000.tb01079.x, 10.1353/hyp.2000.0002, and 10.2979/hyp.2000.15.1.43
@@ -128,5 +128,5 @@ filter(papers, is.na(doi))
 ## Write output ----------
 papers %>%
     count(publication_series) %>%
-    write_csv('01_journal_data.csv')
-write_rds(papers, path = '01_papers.rds')
+    write_csv('../data/01_journal_data.csv')
+write_rds(papers, path = '../data/01_papers.rds')

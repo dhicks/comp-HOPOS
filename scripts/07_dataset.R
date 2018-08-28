@@ -1,8 +1,8 @@
 library(tidyverse)
 
-authors_unfltd = read_rds('03_authors.rds') %>%
+authors_unfltd = read_rds('../data/03_authors.rds') %>%
     filter(!duplicated(.))
-names_df = read_csv('04_names_verif.csv', na = 'Ignored') %>%
+names_df = read_csv('../data/04_names_verif.csv', na = 'Ignored') %>%
     filter(!duplicated(.)) %>%
     mutate(`Canonical Family` = ifelse(is.na(`Canonical Family`), 
                                        `Orig Family`, 
@@ -11,9 +11,9 @@ names_df = read_csv('04_names_verif.csv', na = 'Ignored') %>%
                                        `Orig Given`, 
                                        `Canonical Given`))
 
-phil_sci = read_rds('06_phil_sci.Rds')
+phil_sci = read_rds('../data/06_phil_sci.Rds')
 
-gender_df = read_rds('06_gender.Rds') %>%
+gender_df = read_rds('../data/06_gender.Rds') %>%
     select(-prob_f_namsor, -gender_namsor, 
            -prob_f_genderize, -gender_genderize) %>%
     rename(prob_f_avg = avg)
@@ -52,25 +52,25 @@ pubs_phs = nest(authors_phs, given_orig:gender_attr,
 ## Column names - useful for data dictionary
 authors_full %>%
     names() %>%
-    write_lines('07_cols.txt')
+    write_lines('../data/07_cols.txt')
 
 ## Author-wise formats
-write_rds(authors_full, '07_authors_full.Rds')
+write_rds(authors_full, '../data/07_authors_full.Rds')
 authors_full %>%
     select_if(negate(is.list)) %>%
-    write_csv('07_authors_full.csv')
-write_rds(authors_phs, '07_authors_philsci.Rds')
+    write_csv('../data/07_authors_full.csv')
+write_rds(authors_phs, '../data/07_authors_philsci.Rds')
 authors_phs %>%
     select_if(negate(is.list)) %>%
-    write_csv('07_authors_philsci.csv')
+    write_csv('../data/07_authors_philsci.csv')
 
 ## Publication-wise formats
-write_rds(pubs_full, '07_publications_full.Rds')
+write_rds(pubs_full, ../data/'07_publications_full.Rds')
 pubs_full %>%
     select_if(negate(is.list)) %>%
-    write_csv('07_publications_full.csv')
-write_rds(pubs_phs, '07_publications_philsci.Rds')
+    write_csv('../data/07_publications_full.csv')
+write_rds(pubs_phs, '../data/07_publications_philsci.Rds')
 pubs_phs %>%
     select_if(negate(is.list)) %>%
-    write_csv('07_publications_philsci.csv')
+    write_csv('../data/07_publications_philsci.csv')
 

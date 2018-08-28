@@ -14,9 +14,9 @@ library(tidyverse)
 
 source('api_keys.R')
 
-authors_df_unfltd = read_rds('03_authors.rds') %>%
+authors_df_unfltd = read_rds('../data/03_authors.rds') %>%
     filter(!is.na(family))
-names_df = read_csv('04_names_verif.csv', na = 'Ignored') %>%
+names_df = read_csv('../data/04_names_verif.csv', na = 'Ignored') %>%
     filter(!duplicated(.)) %>%
     mutate(`Canonical Family` = ifelse(is.na(`Canonical Family`), 
                                        `Orig Family`, 
@@ -70,7 +70,7 @@ phil_sci = phil_sci %>%
 phil_sci %>%
     select(given, family) %>%
     filter(!duplicated(.)) %>%
-    write_rds('06_phil_sci.Rds')
+    write_rds('../data/06_phil_sci.Rds')
 
 ## Num. philosophy of science articles published in analytic journals
 # phil_sci %>%
@@ -117,7 +117,7 @@ author_first_pub = phil_sci %>%
            yob_high = first_pub - 30 + 5)
 
 ## Load SSA YOB files
-yob_folder = 'Gender-ID-By-Time/ReferenceData'
+yob_folder = '../Gender-ID-By-Time/ReferenceData'
 yob_files = list.files(yob_folder)
 names(yob_files) = str_extract(yob_files, '[0-9]+')
 
@@ -216,7 +216,7 @@ namsor_list = function(names_df) {
     return(response_df)
 }
 
-namsor_file = '06_namsor.Rds'
+namsor_file = '../data/06_namsor.Rds'
 if (!file.exists(namsor_file)) {
     chunks = phil_sci %>%
         count(given, family) %>%
@@ -296,7 +296,7 @@ chunks_genderize = phil_sci %>%
 # map(chunks_genderize[1:3], genderize_list)
 # tictoc::toc()
 
-genderize_file = '06_genderize.Rds'
+genderize_file = '../data/06_genderize.Rds'
 if (!file.exists(genderize_file)) {
     # tictoc::tic()
     gender_genderize = chunks_genderize %>%
@@ -340,7 +340,7 @@ gender_combined = phil_sci %>%
                                    avg > .75 ~ 'f', 
                                    TRUE ~ 'indet'))
 
-write_rds(gender_combined, '06_gender.Rds')
+write_rds(gender_combined, '../data/06_gender.Rds')
 
 # ggplot(gender_combined, aes(prob_f_blevins, prob_f_namsor)) + 
 #     geom_point() +
@@ -350,7 +350,7 @@ write_rds(gender_combined, '06_gender.Rds')
 
 ggplot(gender_combined, aes(avg)) + stat_ecdf()
 filter(gender_combined, gender_attr == 'indet') %>% 
-    write_csv('06_indeterminate_gender.csv')
+    write_csv('../data/06_indeterminate_gender.csv')
 
 
 

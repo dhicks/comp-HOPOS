@@ -11,5 +11,5 @@
 #        python 04_dupe_remove.py test.csv testing')
 
 system('alias python=/Users/danhicks/anaconda3/bin/python;
-       python 04_dupe_remove.py 03_names.csv 04_names')
+       python 04_dupe_remove.py ../data/03_names.csv ../data/04_names')
 

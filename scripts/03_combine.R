@@ -10,16 +10,16 @@
 library(tidyverse)
 library(lubridate)
 
-journal_pubs = read_rds('01_papers.rds') %>%
+journal_pubs = read_rds('../data/01_papers.rds') %>%
     filter(!duplicated(.))
-book_pubs = read_rds('02_springer_books.rds') %>%
+book_pubs = read_rds('../data/02_springer_books.rds') %>%
     rename(doi = DOI, isbn = ISBN, issn = ISSN, url = URL)
-mn_pubs = readxl::read_xlsx('00_Minnesota.xlsx') %>%
+mn_pubs = readxl::read_xlsx('../data/00_Minnesota.xlsx') %>%
     mutate_at(vars(issued, volume), as.character) %>%
     nest(.key = 'author', given, family)
 
 ## Canonical journal and book series titles
-canonical_titles = read_csv('01_canonical_titles.csv')
+canonical_titles = read_csv('../data/01_canonical_titles.csv')
 
 # setdiff(names(journal_pubs), names(book_pubs))
 # setdiff(names(book_pubs), names(journal_pubs))
@@ -71,13 +71,13 @@ authors_df %>%
 
 ## Output --------------------
 
-write_rds(pubs_df, path = '03_publications.rds')
-write_rds(authors_df, path = '03_authors.rds')
+write_rds(pubs_df, path = '../data/03_publications.rds')
+write_rds(authors_df, path = '../data/03_authors.rds')
 
 ## Python script used in 04 can't handle the encoding errors
 author_counts %>%
     filter(!str_detect(given, '\ufffd') & 
                !str_detect(family, '\ufffd')) %>% 
-    write_excel_csv(path = '03_names.csv')
+    write_excel_csv(path = '../data/03_names.csv')
 
 
