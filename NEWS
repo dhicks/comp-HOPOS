@@ -1,0 +1,10 @@
+2.0 - Daniel J. Hicks
+
+- Evelyn Brister manually reviewed the dataset for accuracy, focusing on fixing name and gender attribution issues.  These manual fixes have been seamlessly incorporated into the release dataset.  (issue #12)
+
+- The extraneous URL field has been removed. (issue #11)
+
+- Several empty, nearly empty, redundant, or undocumented columns have been removed. In particular, the only list column in the publication formats is the author data, and there are no list columns in the author formats.  This means there is minimal difference in the data coverage of the CSV and Rds files.  
+
+- Universal Numeric Fingerprints (UNF) are now used to aid versioning.  Each release of the dataset will be accompanied by a spreadsheet of UNF values.  Your local copy of the dataset can be validated by generating the UNF value (using the R package `UNF` or the Python library `python-unf` <https://github.com/chaselgrove/python-unf>) and comparing it to the documented values.  For documentation of the underlying algorithm, the advantages of UNF, and instructions on how to format data citations using UNF, see the vignettes for the `UNF` package at <https://cran.r-project.org/package=UNF> and the Dataverse Project guidelines at <http://guides.dataverse.org/en/latest/developers/unf/index.html>.  (issue #6)
+
