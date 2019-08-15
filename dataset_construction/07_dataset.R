@@ -6,6 +6,8 @@ library(UNF)
 library(assertthat)
 library(tictoc)
 
+dataset_version = '2.0'
+
 data_folder = '../data/'
 unf_tz = 'UTC'  ## Timezone used in generating UNFs
 
@@ -18,33 +20,8 @@ drop_cols = c('member', 'prefix', 'score', 'source',
               'affiliation3.name', 'affiliation4.name', 
               'name', 'funder', 'assertion')
 
-## Load data ----
-authors_unfltd = read_rds(str_c(data_folder, '03_authors.rds')) %>%
-    filter(!duplicated(.))
-names_df = read_csv(str_c(data_folder, '04_names_verif.csv'), 
-                    na = 'Ignored') %>%
-    filter(!duplicated(.)) %>%
-    mutate(`Canonical Family` = ifelse(is.na(`Canonical Family`), 
-                                       `Orig Family`, 
-                                       `Canonical Family`), 
-           `Canonical Given` = ifelse(is.na(`Canonical Given`), 
-                                       `Orig Given`, 
-                                       `Canonical Given`))
-
-phil_sci = read_rds(str_c(data_folder, '06_phil_sci.Rds'))
-
-gender_df = read_rds(str_c(data_folder, '06_gender.Rds')) %>%
-    ## For IP reasons, these columns can't be publicly released
-    select(-prob_f_namsor, -gender_namsor, 
-           -prob_f_genderize, -gender_genderize) %>%
-    rename(prob_f_avg = avg)
-
-
-## Load manual fixes ----
-drop_df = read_rds(str_c(data_folder, '00_drop.Rds'))
-drop_authors_df = read_rds(str_c(data_folder, '00_drop_authors.Rds'))
-name_change_df = read_rds(str_c(data_folder, '00_name_change.Rds'))
-fix_gender_df = read_rds(str_c(data_folder, '00_fix_gender.Rds'))
+## Year range for phil sci subset
+year_range = quos(pub_year >= 1930, pub_year <= 2017)
 
 
 ## Functions ----
@@ -67,6 +44,44 @@ as_tibble.UNF = function(obj) {
         truncation = attributes$truncation
     ))
 }
+
+
+## Load data ----
+authors_unfltd = read_rds(str_c(data_folder, '03_authors.rds')) %>%
+    filter(!duplicated(.)) %>% 
+    ## Fix NAs introduced by mishandling book chapters somewhere upstream
+    mutate(publication_group = keep_or_patch(publication_group, 
+                                             'primary'),
+           publication_series = keep_or_patch(publication_series, 
+                                              'Book series'))
+
+## Automatically matched/canonicalized given and family names
+names_df = read_csv(str_c(data_folder, '04_names_verif.csv'), 
+                    na = 'Ignored') %>%
+    filter(!duplicated(.)) %>%
+    mutate(`Canonical Family` = keep_or_patch(`Canonical Family`, 
+                                              `Orig Family`), 
+           `Canonical Given` = keep_or_patch(`Canonical Given`, 
+                                             `Orig Given`))
+
+## Given and family names for philosophers of science
+phil_sci = read_rds(str_c(data_folder, '06_phil_sci.Rds'))
+
+gender_df = read_rds(str_c(data_folder, '06_gender.Rds')) %>%
+    ## For IP reasons, these columns can't be publicly released
+    select(-prob_f_namsor, -gender_namsor, 
+           -prob_f_genderize, -gender_genderize) %>%
+    rename(prob_f_avg = avg)
+
+
+## Load manual fixes ----
+## Documents and authors to be removed
+drop_df = read_rds(str_c(data_folder, '00_drop.Rds'))
+drop_authors_df = read_rds(str_c(data_folder, '00_drop_authors.Rds'))
+
+## Name and gender attribution changes
+name_change_df = read_rds(str_c(data_folder, '00_name_change.Rds'))
+fix_gender_df = read_rds(str_c(data_folder, '00_fix_gender.Rds'))
 
 
 ## Combine ----
@@ -102,13 +117,17 @@ authors_full = authors_unfltd %>%
            prob_w_avg = prob_f_avg) %>% 
     mutate_at(vars(gender_blevins, gender_attr, gender_attr.manual), 
               list(~str_replace(., 'f', 'w'))) %>% 
-    ## Lowercase all variable names
-    rename_all(tolower)
+    ## Lowercase and de-space all variable names
+    rename_all(tolower) %>% 
+    rename_all(str_replace_all, ' ', '_')
 
 ## Filter down to philosophers of science
-authors_phs = inner_join(authors_full, phil_sci) %>% 
-    anti_join(drop_authors_df) %>% 
-    anti_join(drop_df)
+authors_phs = inner_join(authors_full, phil_sci, 
+                         by = c('given', 'family')) %>% 
+    anti_join(drop_authors_df, 
+              by = c('given', 'family')) %>% 
+    anti_join(drop_df, by = 'doi') %>% 
+    filter(!!!year_range)
 
 
 ## Data validation ----
@@ -171,8 +190,10 @@ unf_df = list('authors-full-both' = authors_full,
     map_dfr(as_tibble, .id = 'dataset') %>% 
     separate(dataset, into = c('format', 'size', 'file_format'), 
              sep = '-') %>% 
-    mutate(timezone = unf_tz) %>% 
-    select(-unflong, everything(), unflong)
+    mutate(timezone = unf_tz, 
+           dataset_version = dataset_version) %>% 
+    rename(unf_version = version) %>% 
+    select(-unflong, dataset_version, everything(), unflong)
 toc()
 
 
