@@ -100,18 +100,19 @@ authors_full = authors_unfltd %>%
     mutate(family = keep_or_patch(`Canonical Family`, family_orig), 
            given = keep_or_patch(`Canonical Given`, given_orig)) %>%
     ## Gender attribution
-    left_join(gender_df) %>% 
+    left_join(gender_df, by = c('family', 'given')) %>% 
     ## Manual name fixes
     left_join(name_change_df, by = c('family', 'given')) %>% 
     mutate(family = keep_or_patch(family.manual, family), 
            given = keep_or_patch(given.manual, given)) %>% 
     select(-contains('manual')) %>% 
     ## Manual gender fixes
-    left_join(fix_gender_df, by = c('family', 'given', 
-                                    'gender_attr')) %>% 
+    left_join(fix_gender_df, by = c('family', 'given'), 
+              suffix = c('', '_discard')) %>% 
     select(-gender_attr, everything(), gender_attr) %>% 
     mutate(gender_attr = keep_or_patch(gender_attr.manual, 
                                        gender_attr)) %>% 
+    select(-contains('_discard')) %>% 
     ## Recode 'f' as 'w'
     rename(prob_w_blevins = prob_f_blevins, 
            prob_w_avg = prob_f_avg) %>% 
@@ -122,8 +123,16 @@ authors_full = authors_unfltd %>%
     rename_all(str_replace_all, ' ', '_')
 
 ## Filter down to philosophers of science
-authors_phs = inner_join(authors_full, phil_sci, 
+authors_phs = phil_sci %>% 
+    ## Manual name fixes
+    left_join(name_change_df, by = c('family', 'given')) %>% 
+    mutate(family = keep_or_patch(family.manual, family), 
+           given = keep_or_patch(given.manual, given)) %>% 
+    select(-contains('manual')) %>% 
+    ## Join    
+    inner_join(authors_full, ., 
                          by = c('given', 'family')) %>% 
+    ## Manual drops
     anti_join(drop_authors_df, 
               by = c('given', 'family')) %>% 
     anti_join(drop_df, by = 'doi') %>% 

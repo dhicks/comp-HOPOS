@@ -67,6 +67,13 @@ phil_sci = phil_sci %>%
     rename(for_gender_attr = split) %>%
     right_join(phil_sci)
 
+## 3.5k "philosophers of science"
+## 8.7k if a threshold of 1 primary publication is used instead
+phil_sci %>% 
+    select(given, family) %>% 
+    filter(!duplicated(.)) %>% 
+    nrow()
+
 phil_sci %>%
     select(given, family) %>%
     filter(!duplicated(.)) %>%
