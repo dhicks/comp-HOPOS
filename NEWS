@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- The first run of Erkenntnis (prior to 1941) was treated as a primary philosophy of science venue when identifying philosophers of science (script 06), but not when assembling the dataset for release (script 07).  Erkenntnis is now handled correctly in both places.  This change moved 181 papers from "analytic" to "primary."  
+
+
+
+
 ## [2.0] - 2019-11-11
 
 ### Added

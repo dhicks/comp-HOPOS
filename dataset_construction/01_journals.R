@@ -3,6 +3,14 @@ library(tidyverse)
 library(lubridate)
 library(rcrossref)
 
+library(tictoc)
+
+## Check whether crossref_email has been registered
+if (Sys.getenv('crossref_email') == '') {
+    stop('crossref_email was missing/empty. 
+         Follow the instructions at <https://github.com/ropensci/rcrossref#register-for-the-polite-pool>.')
+}
+
 ## Bc some philosophy of science is published elsewhere (especially before the phil sci/analytic split began), need to grab both "primary" phil sci journals + "secondary" journals that have a little phil sci (and lots of other stuff)
 ## To filter out the other stuff later, use inclusion rules for authors after de-duping, eg, need at least 2 papers in primary journals
 
@@ -95,12 +103,12 @@ journal_data = issns %>%
     bind_cols(issns)
 
 ## ~24 minutes
-system.time({
-    results = cr_journals(issn = journal_data$issn1, works = TRUE, 
+tic()
+results = cr_journals(issn = journal_data$issn1, works = TRUE, 
                           limit = 1000,
                           cursor = '*', cursor_max = 20000, 
                           .progress = 'text')
-})
+toc()
 
 papers = results$data %>% 
     rename(doi = DOI, issn = ISSN) %>%

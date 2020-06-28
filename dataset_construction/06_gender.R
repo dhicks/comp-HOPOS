@@ -10,13 +10,21 @@
 ## ```
 
 ## Setup ----
+message('This script accesses two subscription services for name-based gender attribution. See the comments at the top of the script for instructions. Comment out line 14 to use this script automatically.')
+# stop()
+
 library(tidyverse)
 
 source('api_keys.R')
+data_folder = file.path('..', 'data')
+outfile = file.path(data_folder, '06_gender.Rds')
+force_query = FALSE ## set to TRUE to force re-querying gender attribution services
 
-authors_df_unfltd = read_rds('../data/03_authors.rds') %>%
+## Load data ----
+authors_df_unfltd = read_rds(file.path(data_folder, '03_authors.rds')) %>%
     filter(!is.na(family))
-names_df = read_csv('../data/04_names_verif.csv', na = 'Ignored') %>%
+names_df = read_csv(file.path(data_folder, '04_names_verif.csv'), 
+                    na = 'Ignored') %>%
     filter(!duplicated(.)) %>%
     mutate(`Canonical Family` = ifelse(is.na(`Canonical Family`), 
                                        `Orig Family`, 
@@ -25,6 +33,15 @@ names_df = read_csv('../data/04_names_verif.csv', na = 'Ignored') %>%
                                       `Orig Given`, 
                                       `Canonical Given`))
 
+## Check whether previous gender data exist
+## This is where force_query is used to force re-querying all authors
+if (file.exists(outfile) && !force_query) {
+    gender_cache = read_rds(outfile)
+} else {
+    gender_cache = NULL
+}
+
+## ID philosophers of science ----
 ## Combine author-level metadata and canonical names
 authors_df = authors_df_unfltd %>%
     left_join(names_df, 
@@ -38,25 +55,26 @@ authors_df = authors_df_unfltd %>%
                            family_orig), 
            given = ifelse(!is.na(`Canonical Given`), 
                           `Canonical Given`, 
-                          given_orig)) %>%
+                          given_orig)) %>% 
+    ## TODO: the next several lines have to be repeated in 07.  rewrite to avoid this. 
     ## Erkenntnis is primary prior to 1941
     mutate(publication_group = case_when(
         publication_series == 'Erkenntnis' & pub_year < 1941 ~ 'primary', 
         TRUE ~ publication_group))
 
 ## Filter down to "philosophers of science" 
-phil_sci = authors_df %>%
+phil_sci_uncln = authors_df %>%
     count(given, family, publication_group) %>%
     filter(publication_group == 'primary', n >= 2) %>%
     select(given, family) %>%
     inner_join(authors_df)
 
 ## Clean "given," removing initials and selecting what appears to be the first full name
-phil_sci = phil_sci %>%
+phil_sci = phil_sci_uncln %>%
     select(given) %>%
     filter(!duplicated(.)) %>%
     mutate(split = str_split(given, ' ')) %>%
-    unnest() %>%
+    unnest_legacy(split) %>%
     filter(!duplicated(.)) %>%
     mutate(len = str_length(split)) %>%
     filter(len > 1) %>%
@@ -65,20 +83,15 @@ phil_sci = phil_sci %>%
     ungroup() %>%
     select(-len) %>%
     rename(for_gender_attr = split) %>%
-    right_join(phil_sci)
+    right_join(phil_sci_uncln)
 
 ## 3.5k "philosophers of science"
 ## 8.7k if a threshold of 1 primary publication is used instead
 phil_sci %>% 
-    select(given, family) %>% 
-    filter(!duplicated(.)) %>% 
+    count(given, family) %>% 
     nrow()
 
-phil_sci %>%
-    select(given, family) %>%
-    filter(!duplicated(.)) %>%
-    write_rds('../data/06_phil_sci.Rds')
-
+## Some EDA for philosophers of science ----
 ## Num. philosophy of science articles published in analytic journals
 # phil_sci %>%
 #     select(doi, container.title:pub_year,
@@ -111,12 +124,30 @@ phil_sci %>%
 #     ggplot(aes(pub_year, frac, color = publication_group)) +
 #     geom_line()
 
+## Which authors need gender ID? ----
+needs_gender_attr = phil_sci %>% 
+    anti_join(gender_cache, by = c('for_gender_attr', 'given', 'family'))
 
-## Cameron Blevins: Gender ID by time ----
+if (nrow(needs_gender_attr) == 0L) {
+    message('All authors found in existing output file (06_gender.Rds)')
+    message('Output files will be touched but not changed')
+    message('Set force_query = TRUE to ignore existing output')
+    outfiles = file.path(data_folder, 
+                         c('06_gender.Rds', 
+                           '06_genderize.Rds', 
+                           '06_indeterminate_gender.csv', 
+                           '06_namsor.Rds', 
+                           '06_phil_sci.Rds'))
+    fs::file_touch(outfiles)
+    quit(status = 0, runLast = TRUE)
+}
+    
+    
+    ## Cameron Blevins: Gender ID by time ----
 ## <https://github.com/cblevins/Gender-ID-By-Time>
 
 ## Estimated yob is 30±5 years prior to first paper
-author_first_pub = phil_sci %>%
+author_first_pub = needs_gender_attr %>%
     group_by(for_gender_attr, given, family) %>%
     summarize(first_pub = min(pub_year, na.rm = TRUE)) %>%
     ungroup() %>%
@@ -131,8 +162,7 @@ names(yob_files) = str_extract(yob_files, '[0-9]+')
 ## Takes a second
 yob_df = yob_files %>%
     str_c(yob_folder, '/', .) %>% 
-    `names<-`(names(yob_files)) %>%
-    # head() %>%
+    set_names(names(yob_files)) %>% 
     map(read_csv, col_names = c('given', 'gender', 'count')) %>%
     bind_rows(.id = 'yob') %>%
     rename(for_gender_attr = given)
@@ -143,8 +173,9 @@ gender_blevins = author_first_pub %>%
     filter((yob_low <= yob & yob <= yob_high) | is.na(yob)) %>%
     group_by(for_gender_attr, given, family, gender) %>%
     summarize(count = sum(count)) %>%
-    spread(gender, count, fill = 0) %>%
-    select(-`<NA>`) %>%
+    filter(!is.na(gender)) %>% 
+    pivot_wider(names_from = gender, values_from = count, 
+                values_fill = list(count = 0L)) %>% 
     mutate(n = F+M, 
            prob_f_blevins = ifelse(n > 0, F / n, NA),
            gender_blevins = case_when(prob_f_blevins < .25 ~ 'm', 
@@ -225,7 +256,7 @@ namsor_list = function(names_df) {
 
 namsor_file = '../data/06_namsor.Rds'
 if (!file.exists(namsor_file)) {
-    chunks = phil_sci %>%
+    chunks = needs_gender_attr %>%
         count(given, family) %>%
         filter(complete.cases(.)) %>%
         mutate(row_num = row_number(), 
@@ -291,7 +322,7 @@ genderize_list = function(given, api_key = NULL) {
     return(json)
 }
 
-chunks_genderize = phil_sci %>%
+chunks_genderize = needs_gender_attr %>%
     filter(!is.na(for_gender_attr)) %>%
     count(for_gender_attr) %>%
     mutate(chunk = row_number() %/% 10) %>%
@@ -303,7 +334,7 @@ chunks_genderize = phil_sci %>%
 # map(chunks_genderize[1:3], genderize_list)
 # tictoc::toc()
 
-genderize_file = '../data/06_genderize.Rds'
+genderize_file = file.path(data_folder, '06_genderize.Rds')
 if (!file.exists(genderize_file)) {
     # tictoc::tic()
     gender_genderize = chunks_genderize %>%
@@ -328,7 +359,7 @@ if (!file.exists(genderize_file)) {
 
 ## Combine ----
 
-gender_combined = phil_sci %>%
+gender_combined = needs_gender_attr %>%
     select(for_gender_attr, given, family) %>%
     filter(!duplicated(.)) %>%
     left_join(gender_blevins) %>% 
@@ -345,21 +376,25 @@ gender_combined = phil_sci %>%
     ungroup() %>%
     mutate(gender_attr = case_when(avg < .25 ~ 'm', 
                                    avg > .75 ~ 'f', 
-                                   TRUE ~ 'indet'))
+                                   TRUE ~ 'indet')) %>% 
+    bind_rows(gender_cache)
 
-write_rds(gender_combined, '../data/06_gender.Rds')
+## Write output ----
+## List of philosophers of science
+phil_sci %>%
+    count(given, family) %>%
+    select(-n) %>% 
+    write_rds(file.path(data_folder, '06_phil_sci.Rds'))
+
+write_rds(gender_combined, outfile)
 
 # ggplot(gender_combined, aes(prob_f_blevins, prob_f_namsor)) + 
 #     geom_point() +
 #     ggrepel::geom_label_repel(aes(label = str_c(given, ' ', family)), 
 #                               data = function (dataf) dataf[abs(dataf$prob_f_blevins - dataf$prob_f_namsor) > .5,]) +
 #     theme_bw()
+# ggplot(gender_combined, aes(avg)) + stat_ecdf()
 
-ggplot(gender_combined, aes(avg)) + stat_ecdf()
+## Convenient list of names with indeterminate gender attribution
 filter(gender_combined, gender_attr == 'indet') %>% 
-    write_csv('../data/06_indeterminate_gender.csv')
-
-
-
-
-
+    write_csv(file.path(data_folder, '06_indeterminate_gender.csv'))

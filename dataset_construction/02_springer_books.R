@@ -8,6 +8,12 @@ library(xml2)
 library(foreach)
 library(rcrossref)
 
+## Check whether crossref_email has been registered
+if (Sys.getenv('crossref_email') == '') {
+    stop('crossref_email was missing/empty. 
+         Follow the instructions at <https://github.com/ropensci/rcrossref#register-for-the-polite-pool>.')
+}
+
 ## Load upstream CSVs ----------
 boston_df = read_csv('../data/00_Boston.csv') %>%
     mutate(URL = str_replace(URL, 'http', 'https'))

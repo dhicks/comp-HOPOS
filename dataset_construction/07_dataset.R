@@ -6,9 +6,9 @@ library(UNF)
 library(assertthat)
 library(tictoc)
 
-dataset_version = '2.0'
+dataset_version = '2.1a'
 
-data_folder = '../data/'
+data_folder = file.path('..', 'data')
 unf_tz = 'UTC'  ## Timezone used in generating UNFs
 
 ## Columns to drop for the release
@@ -45,18 +45,26 @@ as_tibble.UNF = function(obj) {
     ))
 }
 
+## Title filters
+title_filters = c('\\berrat*', '^book review', '^reviews[^:]+', '\\$ ?[0-9]', '£')
+
 
 ## Load data ----
-authors_unfltd = read_rds(str_c(data_folder, '03_authors.rds')) %>%
+authors_unfltd = read_rds(file.path(data_folder, '03_authors.rds')) %>%
     filter(!duplicated(.)) %>% 
     ## Fix NAs introduced by mishandling book chapters somewhere upstream
     mutate(publication_group = keep_or_patch(publication_group, 
                                              'primary'),
            publication_series = keep_or_patch(publication_series, 
-                                              'Book series'))
+                                              'Book series')) %>%
+    ## TODO: the next several lines have to be repeated in 06.  rewrite to avoid this. 
+    ## Erkenntnis is primary prior to 1941
+    mutate(publication_group = case_when(
+        publication_series == 'Erkenntnis' & pub_year < 1941 ~ 'primary', 
+        TRUE ~ publication_group))
 
 ## Automatically matched/canonicalized given and family names
-names_df = read_csv(str_c(data_folder, '04_names_verif.csv'), 
+names_df = read_csv(file.path(data_folder, '04_names_verif.csv'), 
                     na = 'Ignored') %>%
     filter(!duplicated(.)) %>%
     mutate(`Canonical Family` = keep_or_patch(`Canonical Family`, 
@@ -65,23 +73,25 @@ names_df = read_csv(str_c(data_folder, '04_names_verif.csv'),
                                              `Orig Given`))
 
 ## Given and family names for philosophers of science
-phil_sci = read_rds(str_c(data_folder, '06_phil_sci.Rds'))
+phil_sci = read_rds(file.path(data_folder, '06_phil_sci.Rds'))
 
-gender_df = read_rds(str_c(data_folder, '06_gender.Rds')) %>%
+gender_df = read_rds(file.path(data_folder, '06_gender.Rds')) %>%
     ## For IP reasons, these columns can't be publicly released
     select(-prob_f_namsor, -gender_namsor, 
            -prob_f_genderize, -gender_genderize) %>%
     rename(prob_f_avg = avg)
 
+assert_that(identical(nrow(phil_sci), nrow(gender_df)))
+
 
 ## Load manual fixes ----
 ## Documents and authors to be removed
-drop_df = read_rds(str_c(data_folder, '00_drop.Rds'))
-drop_authors_df = read_rds(str_c(data_folder, '00_drop_authors.Rds'))
+drop_df = read_rds(file.path(data_folder, '00_drop.Rds'))
+drop_authors_df = read_rds(file.path(data_folder, '00_drop_authors.Rds'))
 
 ## Name and gender attribution changes
-name_change_df = read_rds(str_c(data_folder, '00_name_change.Rds'))
-fix_gender_df = read_rds(str_c(data_folder, '00_fix_gender.Rds'))
+name_change_df = read_rds(file.path(data_folder, '00_name_change.Rds'))
+fix_gender_df = read_rds(file.path(data_folder, '00_fix_gender.Rds'))
 
 
 ## Combine ----
@@ -189,9 +199,9 @@ pubs_phs_csv = select_if(pubs_phs, negate(is.list))
 ## 146 sec
 tic()
 unf_df = list('authors-full-both' = authors_full, 
-              'pubs-full-Rds' = pubs_full, 
+              'pubs-full-Rds' = pubs_full,
               'authors-phil sci-both' = authors_phs,
-              'pubs-phil sci-Rds' = pubs_phs, 
+              'pubs-phil sci-Rds' = pubs_phs,
               'pubs-phil sci-csv' = pubs_phs_csv
 ) %>%  
     map(unf, version = 6, digits = 3, 
@@ -211,22 +221,22 @@ toc()
 ## Column names - useful for data dictionary
 authors_full %>%
     names() %>%
-    write_lines(str_c(data_folder, '07_cols.txt'))
+    write_lines(file.path(data_folder, '07_cols.txt'))
 
 ## UNFs
 unf_df %>% 
     select_if(negate(is.list)) %>% 
-    write_csv(str_c(data_folder, '07_unf.csv'))
+    write_csv(file.path(data_folder, '07_unf.csv'))
 
 ## Author-wise formats
-write_rds(authors_full, str_c(data_folder, '07_authors_full.Rds'))
-write_csv(authors_full, str_c(data_folder, '07_authors_full.csv'))
-write_rds(authors_phs, str_c(data_folder, '07_authors_philsci.Rds'))
-write_csv(authors_phs, str_c(data_folder, '07_authors_philsci.csv'))
+write_rds(authors_full, file.path(data_folder, '07_authors_full.Rds'))
+write_csv(authors_full, file.path(data_folder, '07_authors_full.csv'))
+write_rds(authors_phs, file.path(data_folder, '07_authors_philsci.Rds'))
+write_csv(authors_phs, file.path(data_folder, '07_authors_philsci.csv'))
 
 ## Publication-wise formats
-write_rds(pubs_full, str_c(data_folder, '07_publications_full.Rds'))
-write_csv(pubs_full_csv, str_c(data_folder, '07_publications_full.csv'))
-write_rds(pubs_phs, str_c(data_folder, '07_publications_philsci.Rds'))
-write_csv(pubs_phs_csv, str_c(data_folder, '07_publications_philsci.csv'))
+write_rds(pubs_full, file.path(data_folder, '07_publications_full.Rds'))
+write_csv(pubs_full_csv, file.path(data_folder, '07_publications_full.csv'))
+write_rds(pubs_phs, file.path(data_folder, '07_publications_philsci.Rds'))
+write_csv(pubs_phs_csv, file.path(data_folder, '07_publications_philsci.csv'))
 
