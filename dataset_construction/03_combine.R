@@ -18,8 +18,7 @@ data_folder = file.path('..', 'data')
 journal_pubs = read_rds(file.path(data_folder, '01_papers.rds')) %>%
     filter(!duplicated(.))
 book_pubs = read_rds(file.path(data_folder, '02_springer_books.rds')) %>%
-    rename(doi = DOI, isbn = ISBN, issn = ISSN, url = URL) %>% 
-    mutate()
+    rename_all(tolower)
 mn_pubs = readxl::read_xlsx(file.path(data_folder, '00_Minnesota.xlsx')) %>%
     mutate_at(vars(issued, volume), as.character) %>%
     nest(author = c(given, family))
@@ -44,8 +43,11 @@ pubs_df = bind_rows(journal_pubs, book_pubs, mn_pubs) %>%
     ## Drop some problem columns that we don't need anyways
     select(-link, -funder, -assertion)
 
-## TODO: handle NA publication_series
-# assert_that(!any(is.na(pubs_df$publication_series)))
+pubs_df %>% 
+    pull(publication_series) %>% 
+    is.na() %>% 
+    negate(any)() %>% 
+    assert_that(msg = 'Missing values in publication_series')
 
 pubs_df %>% 
     count(doi, title) %>% 

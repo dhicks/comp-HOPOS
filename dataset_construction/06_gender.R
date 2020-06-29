@@ -143,7 +143,7 @@ if (nrow(needs_gender_attr) == 0L) {
 }
     
     
-    ## Cameron Blevins: Gender ID by time ----
+## Cameron Blevins: Gender ID by time ----
 ## <https://github.com/cblevins/Gender-ID-By-Time>
 
 ## Estimated yob is 30±5 years prior to first paper
@@ -208,17 +208,17 @@ gender_blevins = author_first_pub %>%
 #                         secret = namsor_key, user = namsor_user))}
 
 ## One-name-at-a-time version
-namsor = function(given, family, namsor_key = NULL, namsor_user = NULL) {
-    query_url = str_c('https://api.namsor.com/onomastics/api/json/gender/',
-                      RCurl::curlEscape(given), '/', RCurl::curlEscape(family))
-    full_url = str_c(query_url, '?key1=', namsor_key,
-                     '&key2=', namsor_user)
-    print(query_url)
-    response = RCurl::getURL(full_url)
-    json = jsonlite::fromJSON(response)
-    json = jsonlite:::null_to_na(json)
-    return(json)
-}
+# namsor = function(given, family, namsor_key = NULL, namsor_user = NULL) {
+#     query_url = str_c('https://api.namsor.com/onomastics/api/json/gender/',
+#                       RCurl::curlEscape(given), '/', RCurl::curlEscape(family))
+#     full_url = str_c(query_url, '?key1=', namsor_key,
+#                      '&key2=', namsor_user)
+#     print(query_url)
+#     response = RCurl::getURL(full_url)
+#     json = jsonlite::fromJSON(response)
+#     json = jsonlite:::null_to_na(json)
+#     return(json)
+# }
 # 
 # phil_sci %>%
 #     select(given, family) %>%
@@ -233,26 +233,33 @@ namsor = function(given, family, namsor_key = NULL, namsor_user = NULL) {
 ## ************ NB This can get expensive quickly! **************
 ## Make sure the namsor account is upgraded BEFORE running on a large list! 
 namsor_list = function(names_df) {
-    query_url = str_c('https://api.namsor.com/onomastics/api/json/genderList')
+    query_url = str_c('https://v2.namsor.com/NamSorAPIv2/api2/json/genderBatch')
     header = c('Accept' = 'application/json', 
-               'X-Channel-Secret' = namsor_key, 
-               'X-Channel-User' = namsor_user)
+               'Content-Type' = 'application/json', 
+               'X-API-KEY' = namsor_key)
     names_json = names_df %>%
         select(firstName = given, lastName = family) %>%
         filter(!duplicated(.)) %>%
         mutate(id = row_number()) %>%
-        list('names' = .) %>%
+        list('personalNames' = .) %>%
         jsonlite::toJSON()
     
     response = RCurl::basicTextGatherer()
-    result = RCurl::curlPerform(url = query_url, httpheader = header, postfields = names_json, writefunction = response$update)
+    result = RCurl::curlPerform(url = query_url, 
+                                httpheader = header, 
+                                postfields = names_json, 
+                                writefunction = response$update, 
+                                ssl.verifypeer = FALSE,
+                                verbose = FALSE)
     
     response_df = response$value() %>%
         jsonlite::fromJSON() %>%
-        .$names %>%
+        pluck('personalNames') %>% 
         rename(given = firstName, family = lastName)
     return(response_df)
 }
+
+# names_df = tibble(given = 'Dan', family = 'Hicks')
 
 namsor_file = '../data/06_namsor.Rds'
 if (!file.exists(namsor_file)) {
@@ -260,26 +267,26 @@ if (!file.exists(namsor_file)) {
         count(given, family) %>%
         filter(complete.cases(.)) %>%
         mutate(row_num = row_number(), 
-               chunk = as.integer(row_num %/% 1000)) %>%
+               chunk = as.integer(row_num %/% 100)) %>%
         plyr::dlply('chunk', identity)
     
     gender_namsor = map_dfr(chunks, namsor_list)
     gender_namsor = gender_namsor %>%
         ## Rescale output variables
-        mutate(gender = case_when(gender == 'male' ~ 'm', 
-                                  gender == 'female' ~ 'f', 
-                                  gender == 'unknown' ~ 'indeterminate'), 
-               scale = (scale + 1)/2) %>%
+        mutate(gender = case_when(likelyGender == 'male' ~ 'm', 
+                                  likelyGender == 'female' ~ 'f', 
+                                  likelyGender == 'unknown' ~ 'indeterminate'), 
+               genderScale = (genderScale + 1)/2) %>%
         rename(gender_namsor = gender, 
-               prob_f_namsor = scale)
+               prob_f_namsor = genderScale)
     
     write_rds(gender_namsor, namsor_file)
 } else {
     gender_namsor = read_rds(namsor_file)
 }
 
-ggplot(gender_namsor, aes(prob_f_namsor)) + 
-    stat_ecdf() + geom_rug(aes(color = gender_namsor))
+# ggplot(gender_namsor, aes(prob_f_namsor)) + 
+#     stat_ecdf() + geom_rug(aes(color = gender_namsor))
 
 
 
@@ -331,14 +338,13 @@ chunks_genderize = needs_gender_attr %>%
 
 ## 1.042 sec / 3 chunks -> ~45 sec for all 128 chunks
 # tictoc::tic()
-# map(chunks_genderize[1:3], genderize_list)
+# map_dfr(chunks_genderize[1:3], genderize_list)
 # tictoc::toc()
 
 genderize_file = file.path(data_folder, '06_genderize.Rds')
 if (!file.exists(genderize_file)) {
     # tictoc::tic()
-    gender_genderize = chunks_genderize %>%
-        map_dfr(genderize_list, api_key = genderize.io_key)
+    gender_genderize = map_dfr(chunks_genderize, genderize_list)
     # tictoc::toc()
     
     gender_genderize = gender_genderize %>%

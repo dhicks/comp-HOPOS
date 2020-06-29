@@ -8,6 +8,9 @@ library(xml2)
 library(foreach)
 library(rcrossref)
 
+library(tictoc)
+library(assertthat)
+
 ## Check whether crossref_email has been registered
 if (Sys.getenv('crossref_email') == '') {
     stop('crossref_email was missing/empty. 
@@ -15,9 +18,11 @@ if (Sys.getenv('crossref_email') == '') {
 }
 
 ## Load upstream CSVs ----------
-boston_df = read_csv('../data/00_Boston.csv') %>%
+data_folder = file.path('..', 'data')
+
+boston_df = read_csv(file.path(data_folder, '00_Boston.csv')) %>%
     mutate(URL = str_replace(URL, 'http', 'https'))
-western_df = read_csv('../data/00_Western_Ontario.csv') %>%
+western_df = read_csv(file.path(data_folder, '00_Western_Ontario.csv')) %>%
     mutate(URL = str_replace(URL, 'http', 'https'))
 
 book_series_df = bind_rows(list('Boston SH&PS' = boston_df, 
@@ -29,9 +34,9 @@ book_series_df = bind_rows(list('Boston SH&PS' = boston_df,
 ## Basic idea here is that the CSVs include URLs for TOC pages
 ## These pages list chapters, w/ DOIs embedded in the links
 parse_dois = function(response) {
-    dois = xml_find_all(response, 
-                        '//li[@class="chapter-item content-type-list__item"]') %>%
-        xml_find_first('.//a[@class="content-type-list__link u-interface-link gtm-chapter-link"]') %>%
+    dois = response %>% 
+        xml_find_all('//li[@class="chapter-item content-type-list__item"]') %>%
+        xml_find_first('.//a[@class="content-type-list__link u-interface-link"]') %>%
         xml_attr('href') %>%
         str_extract('10.*')
     return(dois)
@@ -43,77 +48,79 @@ scrape_springer = function(this_url) {
     response = read_html(this_url)
     dois = parse_dois(response)
     
-    ## Springer returns 19 results per page
-    ## If we have <19, we're good to go
-    if (length(dois) < 19) {
-        result = tibble(book_url = this_url, 
-                        ch_doi = dois)
-        return(result)
+    ## It's not clear how many results per page, so always check for "next page"
+    ## If more, check for a "next page" URL
+    these_results = tibble(book_url = this_url, ch_doi = dois)
+    next_url = response %>%
+        xml_find_first('//a[@class="test-pagination-next c-pagination__next"]') %>%
+        xml_attr('href') %>%
+        str_c('https://link.springer.com', .)
+    if (is.na(next_url)) {
+        ## If not found, then just return
+        return(these_results)
     } else {
-        ## If more, check for a "next page" URL
-        these_results = tibble(book_url = this_url, ch_doi = dois)
-        next_url = response %>%
-            xml_find_first('//a[@class="test-pagination-next c-pagination__next"]') %>%
-            xml_attr('href') %>%
-            str_c('https://link.springer.com', .)
-        if (is.na(next_url)) {
-            ## If not found, then just return
-            return(these_results)
-        } else {
-            ## Otherwise go to the next page
-            ## recursion yay
-            other_results = scrape_springer(next_url)
-            combined_results = bind_rows(these_results, other_results)
-            return(combined_results) 
-        }
+        ## Otherwise go to the next page
+        ## recursion yay
+        other_results = scrape_springer(next_url)
+        combined_results = bind_rows(these_results, other_results)
+        return(combined_results) 
     }
 }
 
-# system.time({
-#      springer_df = foreach(this_url = book_series_df$URL, 
-#                       .combine = bind_rows, 
-#                       .multicombine = TRUE, 
-#                       .verbose = FALSE) %do% 
-#     scrape_springer(this_url)
-# })
-system.time({
-    springer_df = book_series_df %>%
-        pull(URL) %>%
-        plyr::ldply(scrape_springer, .progress = 'text')
-})
+## ~450 sec
+message('Scraping Springer book chapters.  Takes ~10 minutes.')
+tic()
+springer_df = book_series_df %>%
+    pull(URL) %>%
+    plyr::ldply(scrape_springer, .progress = 'text')
+toc()
+
+## Confirm no missing DOIs
+springer_df %>% 
+    pull(ch_doi) %>% 
+    negate(is.na)() %>% 
+    any() %>% 
+    assert_that(msg = 'Springer chapters with missing DOIs')
+    
 
 ## Confirm we have results for all books in book_series_df
 springer_df %>%
     mutate(first_page_url = str_extract(book_url, '[^?]*')) %>% 
-    anti_join(book_series_df, by = c('first_page_url' = 'URL'))
+    anti_join(book_series_df, by = c('first_page_url' = 'URL')) %>% 
+    nrow() %>% 
+    identical(0L) %>% 
+    assert_that(msg = 'Some Springer chapters not scraped')
 
 ## Confirm we don't have any weird clusters of lengths suggesting cutoffs
-springer_df %>%
-    mutate(first_page_url = str_extract(book_url, '[^?]*')) %>%
-    count(first_page_url) %>%
-    # ggplot(aes(first_page_url, n)) + geom_point()
-    ggplot(aes(n)) + geom_bar()
-
-## Confirm there aren't any NAs for the DOIs
-springer_df %>% 
-    pull(ch_doi) %>% 
-    is.na() %>% 
-    table()
+# springer_df %>% 
+#     mutate(first_page_url = str_extract(book_url, '[^?]*')) %>%
+#     count(first_page_url) %>%
+#     # ggplot(aes(first_page_url, n)) + geom_point()
+#     ggplot(aes(n)) + geom_bar()
 
 ## Retrieve chapter metadata from CrossRef ----------
 ## Takes ~43 seconds / 100 DOIs
 ## So ~40 minutes for all ~5.5k
-system.time({
-    cr_df = cr_works(springer_df$ch_doi, .progress = 'text')
-})
+tic()
+cr_df = cr_works(springer_df$ch_doi, .progress = 'text')
+toc()
 
-springer_books_df = cr_df$data %>%
+springer_books_df = cr_df %>%
+    pluck('data') %>% 
     ## Join w/ ch-level DOIs, so we can see what DOIs weren't in CR
-    right_join(springer_df, by = c('DOI' = 'ch_doi')) %>%
+    right_join(springer_df, by = c('doi' = 'ch_doi')) %>%
+    mutate(book_url = str_extract(book_url, '^[^\\?]+')) %>% 
     ## And join w/ the original DF to track book series
     left_join(select(book_series_df, 
                      URL, publication_group, publication_series), 
               by = c('book_url' = 'URL'))
 
+springer_books_df %>% 
+    filter(is.na(publication_series)) %>% 
+    nrow() %>% 
+    identical(0L) %>% 
+    assert_that(msg = 'NA values in publication_series')
+
 ## Save results ----------
-write_rds(springer_books_df, path = '../data/02_springer_books.rds')
+write_rds(springer_books_df, 
+          file.path(data_folder, '02_springer_books.rds'))

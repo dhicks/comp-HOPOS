@@ -18,7 +18,8 @@ drop_cols = c('member', 'prefix', 'score', 'source',
               'authenticated.orcid', 
               'affiliation1.name', 'affiliation2.name', 
               'affiliation3.name', 'affiliation4.name', 
-              'name', 'funder', 'assertion')
+              'name', 'funder', 'assertion', 
+              'reference', 'license')
 
 ## Year range for phil sci subset
 year_range = quos(pub_year >= 1930, pub_year <= 2017)
@@ -78,8 +79,10 @@ phil_sci = read_rds(file.path(data_folder, '06_phil_sci.Rds'))
 gender_df = read_rds(file.path(data_folder, '06_gender.Rds')) %>%
     ## For IP reasons, these columns can't be publicly released
     select(-prob_f_namsor, -gender_namsor, 
+           -likelyGender, -score, -probabilityCalibrated,
            -prob_f_genderize, -gender_genderize) %>%
-    rename(prob_f_avg = avg)
+    rename(prob_f_avg = avg) %>% 
+    inner_join(select(phil_sci, family, given))
 
 assert_that(identical(nrow(phil_sci), nrow(gender_df)))
 

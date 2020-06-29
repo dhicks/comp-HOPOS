@@ -28,7 +28,7 @@ $(DATA)/05_*.* &: 05_verify_samples.R \
 
 $(DATA)/04_*.* &: 04_dupe_remove.py \
                   $(DATA)/03_names.csv
-	$(PYTHON) 04_dupe_remove.py $(DATA)/03_names.csv $(DATA)/data/04_names
+	$(PYTHON) 04_dupe_remove.py $(DATA)/03_names.csv $(DATA)/04_names
 
 #$(DATA)/04_*.* &: 04_dedupe_names.R \
 #                  04_dupe_remove.py
