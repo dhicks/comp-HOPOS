@@ -53,11 +53,6 @@ title_filters = c('\\berrat*', '^book review', '^reviews[^:]+', '\\$ ?[0-9]', 'Â
 ## Load data ----
 authors_unfltd = read_rds(file.path(data_folder, '03_authors.rds')) %>%
     filter(!duplicated(.)) %>% 
-    ## Fix NAs introduced by mishandling book chapters somewhere upstream
-    mutate(publication_group = keep_or_patch(publication_group, 
-                                             'primary'),
-           publication_series = keep_or_patch(publication_series, 
-                                              'Book series')) %>%
     ## TODO: the next several lines have to be repeated in 06.  rewrite to avoid this. 
     ## Erkenntnis is primary prior to 1941
     mutate(publication_group = case_when(

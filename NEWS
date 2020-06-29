@@ -10,8 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - The first run of Erkenntnis (prior to 1941) was treated as a primary philosophy of science venue when identifying philosophers of science (script 06), but not when assembling the dataset for release (script 07).  Erkenntnis is now handled correctly in both places.  This change moved 181 papers from "analytic" to "primary."  
+- Missing values for `publication_series` for the book series.  [#14](https://github.com/dhicks/comp-HOPOS/issues/14)
 
+### Added
+- A Makefile in the `dataset_construction` folder.  In principle, once dependencies are satisfied and the necessary API keys are defined in `api_key.R`, the dataset can be reproduced from scratch by running `make` in this folder.  Due to the time involved to reproduce the dataset from scratch, this has not been fully tested.  
+- `06_gender.R` now loads an old version of its output file `06_gender.Rds`, if present, and uses it as a cache for the gender attribution services.  This is mostly useful when upstream changes add, say, a hundred authors to the list of philosophers of science.  Set `force_query = TRUE` to force the script to re-query all author names. 
 
+### Note
+- There may be some kind of bug with UNF values in R 4.0.0.  <https://github.com/leeper/UNF/issues/19#issuecomment-650820112>
+- Since the last update, NamSor has released version 2 of their API.  `06_gender.R` now calls version 2.  Combined with the caching of previous gender attribution, this may result in some inconsistencies in representation or value.  
 
 
 ## [2.0] - 2019-11-11
