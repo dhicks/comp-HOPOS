@@ -1,0 +1,68 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+
+## [Unreleased]
+
+### Fixed
+- The first run of Erkenntnis (prior to 1941) was treated as a primary philosophy of science venue when identifying philosophers of science (script 06), but not when assembling the dataset for release (script 07).  Erkenntnis is now handled correctly in both places.  This change moved 181 papers from "analytic" to "primary."  
+
+
+
+
+## [2.0] - 2019-11-11
+
+### Added
+- This NEWS file
+- Universal Numeric Fingerprints (UNF) are now used to support dataset validation.  The file `unf.csv` gives UNF hash strings for each dataset format, size, and file format.  By comparing these hash strings to working datasets, users can confirm which version of the dataset they are using.  
+	- UNF are implemented using the `UNF` package in R.  <https://cran.r-project.org/web/packages/UNF/index.html>
+	- For a brief introduction to UNF, see <https://cran.r-project.org/web/packages/UNF/vignettes/citation.html>
+	- The following block briefly illustrates the use of UNF in practice:  
+	
+```{r}
+library(UNF)
+
+## UNF value for publications-philosophy of science-Rds v2.0
+unf_value = 'nJaKSRjMpMV1zYGoOPFRlQ=='
+
+pub_level = readRDS('publications_philsci.Rds')
+pub_level_unf = unf(pub_level, version = 6, digits = 3, timezone = 'UTC')
+
+identical(pub_level_unf$unf, unf_value)
+```
+
+### Removed
+- Several redundant or (almost entirely) empty/NA columns were removed.  
+	- Redundant `URL` column; cf <https://github.com/dhicks/comp-HOPOS/issues/11>
+	- `member`, `prefix`, `score`, `source`, `subject`, `archive`, `authenticated.orcid`, `affiliation1.name`, `affiliation2.name`, `affiliation3.name`, `affiliation4.name`, `name`, `funder`, `assertion`
+- Evelyn Brister manually identified and removed numerous non-article documents, such as tables of contents and book reviews. 
+- Evelyn Brister manually identified authors who qualified as philosophers of science using the threshold criterion (i.e., 2 or more papers in a primary venue) but who primarily worked in other areas of philosophy.  These authors are:  
+	- E. J. Lowe (metaphysics, phil mind, and phil lang.)
+	- H B Acton (political philosophy)
+	- Alasdair MacIntyre (ethics)
+	- V. J. McGill
+	- Jan Narveson (political theory)
+	- Patrick Nowell-Smith (moral theory)
+	- Daniel J O’Connor (philosophy of education)
+
+## Fixed
+- Evelyn Brister manually reviewed names and gender attribution, fixing issues related to initialization, misspellings, and incorrect or missing gender attribution (based on presentation on faculty websites, etc.).  
+	- cf <https://github.com/dhicks/comp-HOPOS/issues/12>
+
+## Changed
+- The "philosophy of science" dataset size is now filtered by year, and includes only documents published between 1930 and 2017.  The first primary philosophy of science venue (the first version of *Erkenntnis*) began publication in 1930, so our approach identifies very few "philosophers of science" prior to this year.  
+
+
+
+## [1.1] - 2018-08-26
+### Fixed
+This release fixes a substantial error that appeared when combing the gender attributions with the article metadata.
+
+In v1.0, problems with the join logic when combining the results of the gender attribution algorithms (in script 06) meant that ~150 rows in the gender attribution dataframe had NA for both given and family names. All ~150 then matched to NA/NA author names in the article dataframe. The result was a massive inflation in the size of the dataset, and a mean of 26 authors per paper. Anyone familiar with philosophy should recognize this is incorrect.
+
+Fixing the join logic in 06 appears to have solved the problem. Author inflation has disappeared. (In script 07, authors_unfltd has the same number of rows as authors_full.) In the full dataset, about 78% of papers have just 1 author; this is about 92% in the philosophy of science dataset.
+
