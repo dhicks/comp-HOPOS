@@ -1,6 +1,7 @@
 ## This script assembles the various pieces to build the dataset
 library(tidyverse)
 
+library(skimr)
 library(UNF)
 
 library(assertthat)
@@ -220,6 +221,17 @@ toc()
 authors_full %>%
     names() %>%
     write_lines(file.path(data_folder, '07_cols.txt'))
+
+## Skimr overviews
+list('authors-full-both' = authors_full, 
+     'pubs-full-Rds' = pubs_full,
+     'authors-phil-sci-both' = authors_phs,
+     'pubs-phil-sci-Rds' = pubs_phs,
+     'pubs-phil-sci-csv' = pubs_phs_csv) %>% 
+    map(skim) %>% 
+    map(skimr:::knit_print.skim_df) %>% 
+    iwalk(~ write_lines(.x, 
+                        file.path(data_folder, str_c('07_', .y, '_skim.md'))))
 
 ## UNFs
 unf_df %>% 
